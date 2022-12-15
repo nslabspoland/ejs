@@ -1,0 +1,12 @@
+{
+  "editor.formatOnSave": true,
+  "editor.formatOnSaveMode": "file",
+  "editor.formatOnPaste": true,
+  "editor.formatOnType": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.cursorStyle": "line",
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 100,
+
+  "workbench.colorTheme": "Default Dark+ Experimental"
+}
