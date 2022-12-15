@@ -5,6 +5,7 @@
   "editor.formatOnType": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.cursorStyle": "line",
+  "workbench.startupEditor": "none",
   "files.autoSave": "afterDelay",
   "files.autoSaveDelay": 100,
 
