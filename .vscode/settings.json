@@ -8,6 +8,5 @@
   "workbench.startupEditor": "none",
   "files.autoSave": "afterDelay",
   "files.autoSaveDelay": 100,
-
-  "workbench.colorTheme": "Default Dark+ Experimental"
+  "workbench.colorTheme": "Community Material Theme Ocean"
 }
