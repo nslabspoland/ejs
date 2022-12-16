@@ -1,6 +1,13 @@
 import { repoaddress, thisAppName } from "../config/dev-env";
 
-export function showDummyData() {
-  console.log(repoaddress);
-  console.log(thisAppName);
-}
+let showDummyData = () => {
+  return (dumdat = [thisAppName, repoaddress]);
+};
+
+let osc = () => {
+  let system = require("os");
+  const tmpdir = system.tmpdir.toString();
+  const ostype = system.type.toString();
+};
+
+//export { showDummyData, osc }
