@@ -4,19 +4,31 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<title>Dashboard</title>
-	<script type="text/javascript" src="../js/appInfo.js"></script>
+	<script type="text/javascript" src="../js/functions.js"></script>
 	<link rel="stylesheet" href="../styles/entryforms.css" />
 </head>
 
 <body>
+	<!-- JS -->
+	<script type="text/javascript">
+		let showUa = function () {
+			return alert(navigator.userAgent);
+		}
+		
+		function openPage() {
+			window.open("https://github.com");
+		}
+	</script>
+	<!-- End of JS -->
 	<div class="box">
 		<form class="formtext" id="welcomeForm" target="_self" action="bd_dash.html">
 			<fieldset class="box a">
 				<legend style="font-size: 18px;">Basic info</legend>
-				Name: <input id="name_input" type="text" placeholder="Enter your name (required)" /><br /><br />
-				Mail: <input id="mail_input" type="email" placeholder="Enter your email address (optional)" /><br /><br />
+				Name: <input id="text_input" type="text" placeholder="Enter your name (required)" /><br /><br />
+				Mail: <input id="text_input" type="email"
+					placeholder="Enter your email address (optional)" /><br /><br />
 				Gender: <br /><input type="checkbox" name="gender" id="genderchkbx" value="Female">Female<br>
-				<input type="checkbox" name="gender" value="Male">Male<br><br />
+				<input type="checkbox" name="gender" id="genderchkbx" value="Male">Male<br><br />
 			</fieldset>
 			<fieldset class="box b">
 				<legend style="font-size: 18px;">H/W info</legend>
@@ -25,8 +37,22 @@
 					<optgroup>
 						<option>AMD</option>
 						<option>Intel</option>
+						<option>CLIGRPMax seria 1</option>
+						<option>CLIGRPMax seria 2</option>
 					</optgroup>
-				</select>
+				</select><br><br />
+				VTR (%):<br><input id="vtrpercent" type="number" value="61" disabled maxlength="3" /><br><br />
+				H/W (d)clock:<br><input id="hwclock" type="number" value="12" disabled maxlength="3" /><br><br />
+			</fieldset>
+			<fieldset class="box-c">
+				<legend style="font-size: 18px;">Misc</legend>
+				<!--Insert text to display: <input id="text_input_disp" type="text" placeholder="Insert text" maxlength="10"/>
+				<button id="btn_displ_txt" onclick="
+				let v = document.getElementById('text_input_disp');
+				alert();
+				">Display text</button>-->
+				User Agent: <button id="showUA-btn" onclick="showUa()">Show userAgent</button><br><br/>
+				<button id="openPageBtn" onclick="openPage()">Open GitHub</button>
 			</fieldset>
 		</form>
 	</div>

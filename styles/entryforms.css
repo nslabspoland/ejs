@@ -19,6 +19,14 @@
 	display: block;
 }
 
-input {
+input[id=text_input] {
 	width: 100%;
+}
+
+input[id=text_input_disp]{
+	width: 25%;
+}
+
+input[id=disabled-input]{
+	background-color: lightblue;
 }
