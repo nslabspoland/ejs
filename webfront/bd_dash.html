@@ -6,6 +6,7 @@
 	<title>Dashboard</title>
 	<script type="text/javascript" src="../js/functions.js"></script>
 	<link rel="stylesheet" href="../styles/entryforms.css" />
+	<link rel="stylesheet" href="../styles/dropdowns.css"/>
 </head>
 
 <body>
@@ -14,21 +15,44 @@
 		let showUa = function () {
 			return alert(navigator.userAgent);
 		}
-		
+
 		function openPage() {
 			window.open("https://github.com");
 		}
+
+		// Dropdowns
+		/* When the user clicks on the button, toggle between hiding and showing the dropdown content */
+		function myFunction() {
+			document.getElementById("myDropdown").classList.toggle("show");
+		}
+
+		// Close the dropdown menu if the user clicks outside of it
+		window.onclick = function (event) {
+			if (!event.target.matches('.dropbtn')) {
+				var dropdowns = document.getElementsByClassName("dropdown-content");
+				var i;
+				for (i = 0; i < dropdowns.length; i++) {
+					var openDropdown = dropdowns[i];
+					if (openDropdown.classList.contains('show')) {
+						openDropdown.classList.remove('show');
+					}
+				}
+			}
+		}
+
+		function showInputtedName(){
+			let n = document.getElementById('text_input_name');
+			alert("Your name seems to be: "+n.getAttribute('value'));
+		}
 	</script>
 	<!-- End of JS -->
-	<div class="box">
+	<div class="box dropdown">
 		<form class="formtext" id="welcomeForm" target="_self" action="bd_dash.html">
 			<fieldset class="box a">
 				<legend style="font-size: 18px;">Basic info</legend>
-				Name: <input id="text_input" type="text" placeholder="Enter your name (required)" /><br /><br />
-				Mail: <input id="text_input" type="email"
+				Name: <input id="text_input_name" type="text" placeholder="Enter your name (required)" /><br /><br />
+				Mail: <input id="text_input_mail" type="email"
 					placeholder="Enter your email address (optional)" /><br /><br />
-				Gender: <br /><input type="checkbox" name="gender" id="genderchkbx" value="Female">Female<br>
-				<input type="checkbox" name="gender" id="genderchkbx" value="Male">Male<br><br />
 			</fieldset>
 			<fieldset class="box b">
 				<legend style="font-size: 18px;">H/W info</legend>
@@ -51,8 +75,14 @@
 				let v = document.getElementById('text_input_disp');
 				alert();
 				">Display text</button>-->
-				User Agent: <button id="showUA-btn" onclick="showUa()">Show userAgent</button><br><br/>
-				<button id="openPageBtn" onclick="openPage()">Open GitHub</button>
+				<button id="showUA-btn" onclick="showUa()">Show userAgent</button>
+				<button id="openPageBtn" onclick="openPage()">Open GitHub</button><br><br/>
+				<button onclick="myFunction()" class="dropbtn">Click to expand</button>
+				<div id="myDropdown" class="dropdown-content">
+					<a href="https://github.com" target="_blank">GitHub</a>
+					<a href="https://wykop.pl" target="_blank">Wykop</a>
+				</div><br><br/>
+				<button id="showName" onclick="showInputtedName()">Show current name</button>
 			</fieldset>
 		</form>
 	</div>

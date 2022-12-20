@@ -19,7 +19,8 @@
 	display: block;
 }
 
-input[id=text_input] {
+input[id=text_input_name],
+input[id=text_input_mail] {
 	width: 100%;
 }
 
@@ -27,6 +28,7 @@ input[id=text_input_disp]{
 	width: 25%;
 }
 
-input[id=disabled-input]{
-	background-color: lightblue;
+input:disabled{
+	background-color: grey;
+	border: 1px solid orange;
 }
