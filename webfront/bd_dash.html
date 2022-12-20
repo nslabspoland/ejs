@@ -6,7 +6,7 @@
 	<title>Dashboard</title>
 	<script type="text/javascript" src="../js/functions.js"></script>
 	<link rel="stylesheet" href="../styles/entryforms.css" />
-	<link rel="stylesheet" href="../styles/dropdowns.css"/>
+	<link rel="stylesheet" href="../styles/dropdowns.css" />
 </head>
 
 <body>
@@ -40,13 +40,13 @@
 			}
 		}
 
-		function showInputtedName(){
+		function showInputtedName() {
 			let n = document.getElementById('text_input_name');
-			alert("Your name seems to be: "+n.getAttribute('value'));
+			alert("Your name seems to be: " + n.getAttribute('value'));
 		}
 	</script>
 	<!-- End of JS -->
-	<div class="box dropdown">
+	<div class="box">
 		<form class="formtext" id="welcomeForm" target="_self" action="bd_dash.html">
 			<fieldset class="box a">
 				<legend style="font-size: 18px;">Basic info</legend>
@@ -76,12 +76,7 @@
 				alert();
 				">Display text</button>-->
 				<button id="showUA-btn" onclick="showUa()">Show userAgent</button>
-				<button id="openPageBtn" onclick="openPage()">Open GitHub</button><br><br/>
-				<button onclick="myFunction()" class="dropbtn">Click to expand</button>
-				<div id="myDropdown" class="dropdown-content">
-					<a href="https://github.com" target="_blank">GitHub</a>
-					<a href="https://wykop.pl" target="_blank">Wykop</a>
-				</div><br><br/>
+				<button id="openPageBtn" onclick="openPage()">Open GitHub</button><br><br /><br><br />
 				<button id="showName" onclick="showInputtedName()">Show current name</button>
 			</fieldset>
 		</form>
