@@ -1,12 +1,35 @@
 <html>
-	<head>
-		<meta charset="utf-8"/>
-		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-		<title>Dashboard</title>
-		<script type="text/javascript" src="../js/appInfo.js"></script>
-		<link rel="stylesheet" href="../styles/main-webstyle.css">
-	</head>
-	<body class="bodystyle">
-		
-	</body>
+
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Dashboard</title>
+	<script type="text/javascript" src="../js/appInfo.js"></script>
+	<link rel="stylesheet" href="../styles/entryforms.css" />
+</head>
+
+<body>
+	<div class="box">
+		<form class="formtext" id="welcomeForm" target="_self" action="bd_dash.html">
+			<fieldset class="box a">
+				<legend style="font-size: 18px;">Basic info</legend>
+				Name: <input id="name_input" type="text" placeholder="Enter your name (required)" /><br /><br />
+				Mail: <input id="mail_input" type="email" placeholder="Enter your email address (optional)" /><br /><br />
+				Gender: <br /><input type="checkbox" name="gender" id="genderchkbx" value="Female">Female<br>
+				<input type="checkbox" name="gender" value="Male">Male<br><br />
+			</fieldset>
+			<fieldset class="box b">
+				<legend style="font-size: 18px;">H/W info</legend>
+				<label for="cpulist">Select CPU brand</label><br>
+				<select id="cpulist" style="width: 220px;">
+					<optgroup>
+						<option>AMD</option>
+						<option>Intel</option>
+					</optgroup>
+				</select>
+			</fieldset>
+		</form>
+	</div>
+</body>
+
 </html>

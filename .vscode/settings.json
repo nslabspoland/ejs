@@ -8,5 +8,8 @@
   "files.autoSave": "afterDelay",
   "files.autoSaveDelay": 100,
 
-  "workbench.colorTheme": "Default Dark+ Experimental"
+  "workbench.colorTheme": "Default Dark+ Experimental",
+  "[html]": {
+    "editor.defaultFormatter": "vscode.html-language-features"
+  }
 }
