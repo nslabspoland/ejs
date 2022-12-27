@@ -41,9 +41,15 @@
 		}
 
 		function showInputtedName() {
-			let n = document.getElementById('text_input_name');
-			alert("Your name seems to be: " + n.getAttribute('value'));
+			const NameValue = document.querySelectorAll('input');
+			alert(NameValue.values);
 		}
+
+		function clearTextFields(){
+			const inputs = document.querySelectorAll('input');
+			inputs.values = "";
+		}
+
 	</script>
 	<!-- End of JS -->
 	<div class="box">
@@ -76,8 +82,9 @@
 				alert();
 				">Display text</button>-->
 				<button id="showUA-btn" onclick="showUa()">Show userAgent</button>
-				<button id="openPageBtn" onclick="openPage()">Open GitHub</button><br><br /><br><br />
-				<button id="showName" onclick="showInputtedName()">Show current name</button>
+				<button id="openPageBtn" onclick="openPage()">Open GitHub</button>
+				<button id="showName" onclick="showInputtedName()" disabled>Show current name</button>
+				<button id="clearTxt" onclick="clearTextFields()">Clear inputs</button>
 			</fieldset>
 		</form>
 	</div>
