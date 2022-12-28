@@ -4,16 +4,20 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<title>Dashboard</title>
-	<script type="text/javascript" src="../js/functions.js"></script>
+	<script type="text/javascript" src="../config/messages.js"></script>
 	<link rel="stylesheet" href="../styles/entryforms.css" />
 	<link rel="stylesheet" href="../styles/dropdowns.css" />
 </head>
 
 <body>
 	<!-- JS -->
+	<script>
+		console.clear = () => console.trace("Coś próbuje wyczyścić konsolę");
+		window.clear = console.clear;
+	</script>
 	<script type="text/javascript">
 		let showUa = function () {
-			return alert(navigator.userAgent);
+			document.getElementById('text_input_user_Agent').value = navigator.userAgent.toString();
 		}
 
 		function openPage() {
@@ -49,12 +53,27 @@
 		function clearTextFields() {
 			const inpts = [
 				document.getElementById('text_input_name'),
-				document.getElementById('text_input_mail')
+				document.getElementById('text_input_user_Agent')
 			]
 			inpts.forEach(element => {
 				inpts.values = "";
 				console.log(npts.length);
 			});
+		}
+
+		function logErrorGettingValuesDisplayed() {
+			let errDisplayingValues = "Unable to read correct values";
+			console.log(errDisplayingValues);
+		}
+
+		function getValues() {
+				let vtr = Math.random().toPrecision(4);
+				let hwc = Math.random().toPrecision(4);
+			document.querySelector('input[id="vtrpercent"]').value = vtr;
+			document.querySelector('input[id="hwclock"]').value = hwc;
+
+			// Send error to console
+			logErrorGettingValuesDisplayed();
 		}
 
 	</script>
@@ -64,8 +83,7 @@
 			<fieldset class="box a">
 				<legend class="legend_css">Basic info</legend>
 				Name: <input id="text_input_name" type="text" placeholder="Enter your name (required)" /><br /><br />
-				Mail: <input id="text_input_mail" type="email"
-					placeholder="Enter your email address (optional)" /><br /><br />
+				userAgent: <input id="text_input_user_Agent" type="text" onclick="showUa()" disabled /><br /><br />
 			</fieldset>
 			<fieldset class="box b">
 				<legend class="legend_css">H/W info</legend>
@@ -78,8 +96,8 @@
 						<option>CLIGRPMax seria 2</option>
 					</optgroup>
 				</select><br><br />
-				VTR (%):<br><input id="vtrpercent" type="number" value="61" disabled maxlength="3" /><br><br />
-				H/W (d)clock:<br><input id="hwclock" type="number" value="12" disabled maxlength="3" /><br><br />
+				VTR (%):<br><input id="vtrpercent" type="text" disabled /><br><br />
+				H/W (d)clock:<br><input id="hwclock" type="text" disabled /><br><br />
 			</fieldset>
 			<fieldset class="box-c">
 				<legend class="legend_css">Misc</legend>
@@ -92,6 +110,7 @@
 				<button id="openPageBtn" onclick="openPage()">Open GitHub</button>
 				<button id="showName" onclick="showInputtedName()" disabled>Show current name</button>
 				<button id="clearTxt" onclick="clearTextFields()">Clear inputs</button>
+				<button id="generateHWValues" onclick="getValues()">Generate values</button>
 			</fieldset>
 		</form>
 	</div>
