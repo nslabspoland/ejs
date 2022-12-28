@@ -1,3 +1,5 @@
+import { homeUrl, toHome } from "./redirect";
+
 const { setupWorker, rest } = require("msw");
 const { repoaddress } = require("../config/dev-env");
 
@@ -13,4 +15,8 @@ export const worker = setupWorker(
 	})
 )
 
+// Redirect to URL
+toHome(homeUrl);
+
+// Run worker
 worker.start();
