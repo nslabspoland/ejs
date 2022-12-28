@@ -1,13 +1,13 @@
 import { homeUrl, toHome } from "./redirect";
 
 const { setupWorker, rest } = require("msw");
-const { repoaddress } = require("../config/dev-env");
+const { repoaddress, ctxStatusOK } = require("../config/dev-env");
 
 export const worker = setupWorker(
-	rest.get(repoaddress, (req, res, ctx) => {
+	rest.get(repoaddress, (res, ctx) => {
 		return res(
 			ctx.delay(1000),
-			ctx.status(200, "OK"),
+			ctx.status(ctxStatusOK),
 			ctx.json({
 				message: "Request OK"
 			})
