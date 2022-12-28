@@ -11,5 +11,8 @@
   "workbench.colorTheme": "Default Dark+ Experimental",
   "[html]": {
     "editor.defaultFormatter": "vscode.html-language-features"
+  },
+  "[css]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   }
 }
