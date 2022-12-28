@@ -25,7 +25,9 @@
 }
 
 input[id=text_input_name],
-input[id=text_input_user_Agent] {
+input[id=text_input_user_Agent],
+input[id=text_input_repoaddr]
+{
 	width: 100%;
 }
 
