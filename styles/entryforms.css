@@ -29,12 +29,12 @@ input[id=text_input_disp] {
 	width: 25%;
 }
 
-input:disabled {
+input:disabled,
+button:hover:not(:disabled) {
 	background-color: rgb(234, 198, 198);
-	border: 1px solid orange;
+	border: 1px solid black;
 }
 
 .legend_css {
 	font-size: 18px;
-	font-style: unset;
 }
