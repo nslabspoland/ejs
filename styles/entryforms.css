@@ -1,3 +1,7 @@
+:root {
+	color-scheme: light dark;
+}
+
 .formborder {
 	margin-top: 10px;
 	border: 2px dotted;
