@@ -61,19 +61,19 @@
 			});
 		}
 
-		function logErrorGettingValuesDisplayed() {
+		function logErrorAsInfoMessageGettingValuesDisplayed() {
 			let errDisplayingValues = "Unable to read correct values";
 			console.log(errDisplayingValues);
 		}
 
 		function getValues() {
-				let vtr = Math.random().toPrecision(4);
-				let hwc = Math.random().toPrecision(4);
+			let vtr = Math.random().toPrecision(4);
+			let hwc = Math.random().toPrecision(4);
 			document.querySelector('input[id="vtrpercent"]').value = vtr;
 			document.querySelector('input[id="hwclock"]').value = hwc;
 
 			// Send error to console
-			logErrorGettingValuesDisplayed();
+			logErrorAsInfoMessageGettingValuesDisplayed();
 		}
 
 	</script>
