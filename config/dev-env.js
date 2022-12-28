@@ -1,4 +1,2 @@
-const repoaddress = "https://github.com/nslabspl/ejs";
-const thisAppName = "Everything JS"
-
-export { repoaddress, thisAppName };
+export const repoaddress = "https://github.com/nslabspl/ejs";
+export const thisAppName = "Everything JS"
