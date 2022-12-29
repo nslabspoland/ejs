@@ -1,0 +1,986 @@
+diff --git a/.gitignore b/.gitignore
+index 3900a0f..2e54aa6 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,2 +1,5 @@
+ tests
+-node_modules
+\ No newline at end of file
++node_modules
++*kraken
++*cnf
++*conf*
+\ No newline at end of file
+diff --git a/.vscode/launch.json b/.vscode/launch.json
+new file mode 100644
+index 0000000..3281d89
+--- /dev/null
++++ b/.vscode/launch.json
+@@ -0,0 +1,15 @@
++{
++	// Use IntelliSense to learn about possible attributes.
++	// Hover to view descriptions of existing attributes.
++	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
++	"version": "0.2.0",
++	"configurations": [
++		{
++			"type": "chrome",
++			"request": "launch",
++			"name": "Launch Chrome against localhost",
++			"url": "http://localhost:8080",
++			"webRoot": "${workspaceFolder}"
++		}
++	]
++}
+\ No newline at end of file
+diff --git a/.vscode/settings.json b/.vscode/settings.json
+index cba9631..d05e0d2 100644
+--- a/.vscode/settings.json
++++ b/.vscode/settings.json
+@@ -5,8 +5,8 @@
+   "editor.formatOnType": true,
+   "editor.defaultFormatter": "esbenp.prettier-vscode",
+   "editor.cursorStyle": "line",
++  "workbench.startupEditor": "none",
+   "files.autoSave": "afterDelay",
+   "files.autoSaveDelay": 100,
+-
+-  "workbench.colorTheme": "Default Dark+ Experimental"
++  "workbench.colorTheme": "Default Dark+ Experimental",
+ }
+diff --git a/config/dev-env.js b/config/dev-env.js
+index f328c1f..044673a 100644
+--- a/config/dev-env.js
++++ b/config/dev-env.js
+@@ -1,4 +1,48 @@
+-const repoaddress = "https://github.com/nslabspl/ejs";
+-const thisAppName = "Everything JS"
++export const repoaddress = "https://github.com/nslabspl/ejs";
++export const thisAppName = "Everything JS";
++export const instanceType = "dev";
+ 
+-export { repoaddress, thisAppName };
+\ No newline at end of file
++// Date
++export const currentDate = Date.now();
++
++/** Experimental.
++ *  May cause instability.
++ *  Use with caution
++ */
++
++export const ctxStatusOK = "200, OK";
++export const ctxStatusRedirected = "301, Redirected";
++
++// Is S/W ready?
++export let isSWReady = navigator.serviceWorker.ready();
++
++// Get template info
++export function getTemplate(template, specialTags, pipeBeforeTags) {
++  specialTags = specialTags || ["fragment"];
++  pipeBeforeTags = pipeBeforeTags || [];
++  return parseTemplate(specialTags, pipeBeforeTags)(template);
++}
++
++export function getKeyByID(key, run = Promise.resolve(), time = 500) {
++    if (this.keys[key] && Date.now() < this.keys[key].expire) {
++        return Promise.resolve(this.keys[key].value);
++    }
++
++    // If we already have one caching in progress try again in 100 ms
++    if (this.keys[key] && this.keys[key].fetching) {
++        return new Promise(resolve => setTimeout(() => resolve(this.get(key, run, time)), 100));
++    }
++
++    this.keys[key] = {
++        fetching: true
++    };
++
++    return run().then(value => {
++        this.keys[key] = {
++            value: value,
++            expire: Date.now() + time
++        };
++
++        return value;
++    });
++}
+\ No newline at end of file
+diff --git a/config/messages.js b/config/messages.js
+new file mode 100644
+index 0000000..0aafcf6
+--- /dev/null
++++ b/config/messages.js
+@@ -0,0 +1,4 @@
++function logErrorGettingValuesDisplayed() {
++	let errDisplayingValues = "Unable to display values";
++	console.error(errDisplayingValues);
++}
+\ No newline at end of file
+diff --git a/index.html b/index.html
+new file mode 100644
+index 0000000..caaa502
+--- /dev/null
++++ b/index.html
+@@ -0,0 +1,12 @@
++<html>
++	<head>
++		<title>Loading page......</title>
++		<meta charset="utf-8">
++		<script type="text/javascript" src="js/functions.js">
++			// For whatever reason this needs to be empty tag || please see comment
++		</script>
++	</head>
++	<body>
++		<a href="webfront/index.html">Home</a>
++	</body>
++</html>
+\ No newline at end of file
+diff --git a/js/appInfo.js b/js/appInfo.js
+index 497e09a..ea8231b 100644
+--- a/js/appInfo.js
++++ b/js/appInfo.js
+@@ -1,6 +1,13 @@
+ import { repoaddress, thisAppName } from "../config/dev-env";
+ 
+-export function showDummyData() {
+-  console.log(repoaddress);
+-  console.log(thisAppName);
+-}
++let showDummyData = () => {
++  return (dumdat = [thisAppName, repoaddress]);
++};
++
++let osc = () => {
++  let system = require("os");
++  const tmpdir = system.tmpdir.toString();
++  const ostype = system.type.toString();
++};
++
++//export { showDummyData, osc }
+diff --git a/js/redirect.js b/js/redirect.js
+new file mode 100644
+index 0000000..9acaf1f
+--- /dev/null
++++ b/js/redirect.js
+@@ -0,0 +1,7 @@
++export const homeUrl = "https://www.google.com";
++
++function toHome(homeUrl) {
++  window.location.replace(homeUrl);
++}
++
++export {toHome};
+\ No newline at end of file
+diff --git a/js/setup_worker.js b/js/setup_worker.js
+index 1763eb7..eea6b8a 100644
+--- a/js/setup_worker.js
++++ b/js/setup_worker.js
+@@ -1,11 +1,13 @@
++import { homeUrl, toHome } from "./redirect";
++
+ const { setupWorker, rest } = require("msw");
+-const { repoaddress } = require("../config/dev-env");
++const { repoaddress, ctxStatusOK } = require("../config/dev-env");
+ 
+ export const worker = setupWorker(
+-	rest.get(repoaddress, (req, res, ctx) => {
++	rest.get(repoaddress, (res, ctx) => {
+ 		return res(
+ 			ctx.delay(1000),
+-			ctx.status(200, "OK"),
++			ctx.status(ctxStatusOK),
+ 			ctx.json({
+ 				message: "Request OK"
+ 			})
+@@ -13,4 +15,8 @@ export const worker = setupWorker(
+ 	})
+ )
+ 
++// Redirect to URL
++toHome(homeUrl);
++
++// Run worker
+ worker.start();
+\ No newline at end of file
+diff --git a/styles/dropdowns.css b/styles/dropdowns.css
+new file mode 100644
+index 0000000..0887fb8
+--- /dev/null
++++ b/styles/dropdowns.css
+@@ -0,0 +1,48 @@
++/* Dropdown Button */
++.dropbtn {
++	background-color: #3498DB;
++	color: white;
++	padding: 16px;
++	font-size: 16px;
++	border: none;
++	cursor: pointer;
++}
++
++/* Dropdown button on hover & focus */
++.dropbtn:hover, .dropbtn:focus {
++	background-color: #2980B9;
++}
++
++/* The container <div> - needed to position the dropdown content */
++.dropdown {
++	position: relative;
++	display: inline-block;
++}
++
++/* Dropdown Content (Hidden by Default) */
++.dropdown-content {
++	display: none;
++	position: absolute;
++	background-color: #f1f1f1;
++	min-width: 160px;
++	box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
++	z-index: 1;
++}
++
++/* Links inside the dropdown */
++.dropdown-content a {
++	color: black;
++	padding: 12px 16px;
++	text-decoration: none;
++	display: block;
++}
++
++/* Change color of dropdown links on hover */
++.dropdown-content a:hover {
++	background-color: #ddd;
++}
++
++/* Show the dropdown menu (use JS to add this class to the .dropdown-content container when the user clicks on the dropdown button) */
++.show {
++	display: block;
++}
+\ No newline at end of file
+diff --git a/styles/entryforms.css b/styles/entryforms.css
+new file mode 100644
+index 0000000..d5af248
+--- /dev/null
++++ b/styles/entryforms.css
+@@ -0,0 +1,46 @@
++:root {
++	color-scheme: light dark;
++}
++
++.formborder {
++	margin-top: 10px;
++	border: 2px dotted;
++	border-radius: 5px;
++	border-color: black;
++}
++
++.formtext {
++	font-family: Arial, Helvetica, sans-serif;
++	color: black;
++}
++
++.box {
++	background-color: rgb(52, 126, 200);
++	color: black;
++	padding: 5px;
++	font-size: 15px;
++	box-sizing: border-box;
++	display: block;
++	grid-template-columns: 100 100 100;
++}
++
++input[id=text_input_name],
++input[id=text_input_user_Agent],
++input[id=text_input_repoaddr]
++{
++	width: 100%;
++}
++
++input[id=text_input_disp] {
++	width: 25%;
++}
++
++input:disabled,
++button:hover:not(:disabled) {
++	background-color: rgb(234, 198, 198);
++	border: 1px solid black;
++}
++
++.legend_css {
++	font-size: 18px;
++}
+\ No newline at end of file
+diff --git a/styles/main-webstyle.css b/styles/main-webstyle.css
+new file mode 100644
+index 0000000..8003584
+--- /dev/null
++++ b/styles/main-webstyle.css
+@@ -0,0 +1,520 @@
++/*!
++ * Licensed under MIT (https://github.com/twbs/bootstrap/blob/main/LICENSE)
++ */
++:root {
++  --bs-blue: #0d6efd;
++  --bs-indigo: #6610f2;
++  --bs-purple: #6f42c1;
++  --bs-pink: #d63384;
++  --bs-red: #dc3545;
++  --bs-orange: #fd7e14;
++  --bs-yellow: #ffc107;
++  --bs-green: #198754;
++  --bs-teal: #20c997;
++  --bs-cyan: #0dcaf0;
++  --bs-black: #000;
++  --bs-white: #fff;
++  --bs-gray: #6c757d;
++  --bs-gray-dark: #343a40;
++  --bs-gray-100: #f8f9fa;
++  --bs-gray-200: #e9ecef;
++  --bs-gray-300: #dee2e6;
++  --bs-gray-400: #ced4da;
++  --bs-gray-500: #adb5bd;
++  --bs-gray-600: #6c757d;
++  --bs-gray-700: #495057;
++  --bs-gray-800: #343a40;
++  --bs-gray-900: #212529;
++  --bs-primary: #0d6efd;
++  --bs-secondary: #6c757d;
++  --bs-success: #198754;
++  --bs-info: #0dcaf0;
++  --bs-warning: #ffc107;
++  --bs-danger: #dc3545;
++  --bs-light: #f8f9fa;
++  --bs-dark: #212529;
++  --bs-primary-rgb: 13, 110, 253;
++  --bs-secondary-rgb: 108, 117, 125;
++  --bs-success-rgb: 25, 135, 84;
++  --bs-info-rgb: 13, 202, 240;
++  --bs-warning-rgb: 255, 193, 7;
++  --bs-danger-rgb: 220, 53, 69;
++  --bs-light-rgb: 248, 249, 250;
++  --bs-dark-rgb: 33, 37, 41;
++  --bs-white-rgb: 255, 255, 255;
++  --bs-black-rgb: 0, 0, 0;
++  --bs-body-color-rgb: 33, 37, 41;
++  --bs-body-bg-rgb: 255, 255, 255;
++  --bs-font-sans-serif: system-ui, -apple-system, "Segoe UI", Roboto,
++    "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif,
++    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
++  --bs-font-monospace: SFMono-Regular, Menlo, Monaco, Consolas,
++    "Liberation Mono", "Courier New", monospace;
++  --bs-gradient: linear-gradient(
++    180deg,
++    rgba(255, 255, 255, 0.15),
++    rgba(255, 255, 255, 0)
++  );
++  --bs-body-font-family: var(--bs-font-sans-serif);
++  --bs-body-font-size: 1rem;
++  --bs-body-font-weight: 400;
++  --bs-body-line-height: 1.5;
++  --bs-body-color: #212529;
++  --bs-body-bg: #fff;
++  --bs-border-width: 1px;
++  --bs-border-style: solid;
++  --bs-border-color: #dee2e6;
++  --bs-border-color-translucent: rgba(0, 0, 0, 0.175);
++  --bs-border-radius: 0.375rem;
++  --bs-border-radius-sm: 0.25rem;
++  --bs-border-radius-lg: 0.5rem;
++  --bs-border-radius-xl: 1rem;
++  --bs-border-radius-2xl: 2rem;
++  --bs-border-radius-pill: 50rem;
++  --bs-link-color: #0d6efd;
++  --bs-link-hover-color: #0a58ca;
++  --bs-code-color: #d63384;
++  --bs-highlight-bg: #fff3cd;
++}
++
++*,
++*::before,
++*::after {
++  box-sizing: border-box;
++}
++
++@media (prefers-reduced-motion: no-preference) {
++  :root {
++    scroll-behavior: smooth;
++  }
++}
++
++.bodystyle {
++  margin: 0;
++  font-family: var(--bs-body-font-family);
++  font-size: var(--bs-body-font-size);
++  font-weight: var(--bs-body-font-weight);
++  line-height: var(--bs-body-line-height);
++  color: var(--bs-body-color);
++  text-align: var(--bs-body-text-align);
++  background-color: var(--bs-body-bg);
++  -webkit-text-size-adjust: 100%;
++  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
++}
++
++hr {
++  margin: 1rem 0;
++  color: inherit;
++  border: 0;
++  border-top: 1px solid;
++  opacity: 0.25;
++}
++
++.h1-normal_weight {
++  font-size: 20px;
++  font-weight: 600;
++  word-spacing: normal;
++  background-color: #20c997;
++  color: #000;
++}
++
++.h1-medium_weight {
++  font-size: 20px;
++  font-weight: 400;
++  word-spacing: 0.5cm;
++  background-color: #20c997;
++  color: #000;
++}
++
++.h1-small_weight {
++  font-size: 20px;
++  font-weight: 200;
++  word-spacing: 1cm;
++  background-color: #20c997;
++  color: #000;
++}
++
++@media (min-width: 1200px) {
++  h1 {
++    font-size: 2.5rem;
++  }
++}
++
++h2 {
++  font-size: calc(1.325rem + 0.9vw);
++}
++
++@media (min-width: 1200px) {
++  h2 {
++    font-size: 2rem;
++  }
++}
++
++h3 {
++  font-size: calc(1.3rem + 0.6vw);
++}
++
++@media (min-width: 1200px) {
++  h3 {
++    font-size: 1.75rem;
++  }
++}
++
++h4 {
++  font-size: calc(1.275rem + 0.3vw);
++}
++
++@media (min-width: 1200px) {
++  h4 {
++    font-size: 1.5rem;
++  }
++}
++
++h5 {
++  font-size: 1.25rem;
++}
++
++h6 {
++  font-size: 1rem;
++}
++
++p {
++  margin-top: 0;
++  margin-bottom: 1rem;
++}
++
++abbr[title] {
++  -webkit-text-decoration: underline dotted;
++  text-decoration: underline dotted;
++  cursor: help;
++  -webkit-text-decoration-skip-ink: none;
++  text-decoration-skip-ink: none;
++}
++
++address {
++  margin-bottom: 1rem;
++  font-style: normal;
++  line-height: inherit;
++}
++
++ol,
++ul {
++  padding-left: 2rem;
++}
++
++ol,
++ul,
++dl {
++  margin-top: 0;
++  margin-bottom: 1rem;
++}
++
++ol ol,
++ul ul,
++ol ul,
++ul ol {
++  margin-bottom: 0;
++}
++
++dt {
++  font-weight: 700;
++}
++
++dd {
++  margin-bottom: 0.5rem;
++  margin-left: 0;
++}
++
++blockquote {
++  margin: 0 0 1rem;
++}
++
++b,
++strong {
++  font-weight: bolder;
++}
++
++small {
++  font-size: 0.875em;
++}
++
++mark {
++  padding: 0.1875em;
++  background-color: var(--bs-highlight-bg);
++}
++
++sub,
++sup {
++  position: relative;
++  font-size: 0.75em;
++  line-height: 0;
++  vertical-align: baseline;
++}
++
++sub {
++  bottom: -0.25em;
++}
++
++sup {
++  top: -0.5em;
++}
++
++a {
++  color: var(--bs-link-color);
++  text-decoration: underline;
++}
++
++a:hover {
++  color: var(--bs-link-hover-color);
++}
++
++a:not([href]):not([class]),
++a:not([href]):not([class]):hover {
++  color: inherit;
++  text-decoration: none;
++}
++
++pre,
++code,
++kbd,
++samp {
++  font-family: var(--bs-font-monospace);
++  font-size: 1em;
++}
++
++pre {
++  display: block;
++  margin-top: 0;
++  margin-bottom: 1rem;
++  overflow: auto;
++  font-size: 0.875em;
++}
++
++pre code {
++  font-size: inherit;
++  color: inherit;
++  word-break: normal;
++}
++
++code {
++  font-size: 0.875em;
++  color: var(--bs-code-color);
++  word-wrap: break-word;
++}
++
++a > code {
++  color: inherit;
++}
++
++kbd {
++  padding: 0.1875rem 0.375rem;
++  font-size: 0.875em;
++  color: var(--bs-body-bg);
++  background-color: var(--bs-body-color);
++  border-radius: 0.25rem;
++}
++
++kbd kbd {
++  padding: 0;
++  font-size: 1em;
++}
++
++figure {
++  margin: 0 0 1rem;
++}
++
++img,
++svg {
++  vertical-align: middle;
++}
++
++table {
++  caption-side: bottom;
++  border-collapse: collapse;
++}
++
++caption {
++  padding-top: 0.5rem;
++  padding-bottom: 0.5rem;
++  color: #6c757d;
++  text-align: left;
++}
++
++th {
++  text-align: inherit;
++  text-align: -webkit-match-parent;
++}
++
++thead,
++tbody,
++tfoot,
++tr,
++td,
++th {
++  border-color: inherit;
++  border-style: solid;
++  border-width: 0;
++}
++
++label {
++  display: inline-block;
++}
++
++button {
++  border-radius: 0;
++}
++
++button:focus:not(:focus-visible) {
++  outline: 0;
++}
++
++input,
++button,
++select,
++optgroup,
++textarea {
++  margin: 0;
++  font-family: inherit;
++  font-size: inherit;
++  line-height: inherit;
++}
++
++button,
++select {
++  text-transform: none;
++}
++
++[role="button"] {
++  cursor: pointer;
++}
++
++select {
++  word-wrap: normal;
++}
++
++select:disabled {
++  opacity: 1;
++}
++
++[list]:not([type="date"]):not([type="datetime-local"]):not([type="month"]):not(
++    [type="week"]
++  ):not([type="time"])::-webkit-calendar-picker-indicator {
++  display: none !important;
++}
++
++button,
++[type="button"],
++[type="reset"],
++[type="submit"] {
++  background-color: lightcoral;
++}
++
++button:not(:disabled),
++[type="button"]:not(:disabled),
++[type="reset"]:not(:disabled),
++[type="submit"]:not(:disabled) {
++  cursor: pointer;
++}
++
++::-moz-focus-inner {
++  padding: 0;
++  border-style: none;
++}
++
++textarea {
++  resize: vertical;
++}
++
++fieldset {
++  min-width: 0;
++  padding: 0;
++  margin: 0;
++  border: 0;
++}
++
++legend {
++  float: left;
++  width: 100%;
++  padding: 0;
++  margin-bottom: 0.5rem;
++  font-size: calc(1.275rem + 0.3vw);
++  line-height: inherit;
++}
++
++@media (min-width: 1200px) {
++  legend {
++    font-size: 1.5rem;
++  }
++}
++
++legend + * {
++  clear: left;
++}
++
++::-webkit-datetime-edit-fields-wrapper,
++::-webkit-datetime-edit-text,
++::-webkit-datetime-edit-minute,
++::-webkit-datetime-edit-hour-field,
++::-webkit-datetime-edit-day-field,
++::-webkit-datetime-edit-month-field,
++::-webkit-datetime-edit-year-field {
++  padding: 0;
++}
++
++::-webkit-inner-spin-button {
++  height: auto;
++}
++
++[type="search"] {
++  outline-offset: -2px;
++  -webkit-appearance: textfield;
++}
++
++/* rtl:raw:
++[type="tel"],
++[type="url"],
++[type="email"],
++[type="number"] {
++  direction: ltr;
++}
++*/
++::-webkit-search-decoration {
++  -webkit-appearance: none;
++}
++
++::-webkit-color-swatch-wrapper {
++  padding: 0;
++}
++
++::-webkit-file-upload-button {
++  font: inherit;
++  -webkit-appearance: button;
++}
++
++::file-selector-button {
++  font: inherit;
++  -webkit-appearance: button;
++}
++
++output {
++  display: inline-block;
++}
++
++iframe {
++  border: 0;
++}
++
++summary {
++  display: list-item;
++  cursor: pointer;
++}
++
++progress {
++  vertical-align: baseline;
++}
++
++[hidden] {
++  display: none !important;
++}
++
++/*# sourceMappingURL=bootstrap-reboot.css.map */
+diff --git a/webfront/bd_dash.html b/webfront/bd_dash.html
+new file mode 100644
+index 0000000..de1e3a1
+--- /dev/null
++++ b/webfront/bd_dash.html
+@@ -0,0 +1,119 @@
++<!DOCTYPE html>
++
++<head>
++	<meta charset="utf-8" />
++	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
++	<title>Dashboard</title>
++	<script type="text/javascript" src="../config/dev-env.js"></script>
++	<link rel="stylesheet" href="../styles/entryforms.css" />
++	<link rel="stylesheet" href="../styles/dropdowns.css" />
++</head>
++
++<body>
++	<!-- JS -->
++	<script>
++		console.clear = () => console.trace("Coś próbuje wyczyścić konsolę");
++		window.clear = console.clear;
++	</script>
++	<script type="text/javascript">
++		let showUa = function () {
++			document.getElementById('text_input_user_Agent').value = navigator.userAgent.toString();
++		}
++
++		function openPage() {
++			window.open("https://github.com");
++			console.log("Opened");
++		}
++
++		// Dropdowns
++		/* When the user clicks on the button, toggle between hiding and showing the dropdown content */
++		function myFunction() {
++			document.getElementById("myDropdown").classList.toggle("show");
++		}
++
++		// Close the dropdown menu if the user clicks outside of it
++		window.onclick = function (event) {
++			if (!event.target.matches('.dropbtn')) {
++				var dropdowns = document.getElementsByClassName("dropdown-content");
++				var i;
++				for (i = 0; i < dropdowns.length; i++) {
++					var openDropdown = dropdowns[i];
++					if (openDropdown.classList.contains('show')) {
++						openDropdown.classList.remove('show');
++					}
++				}
++			}
++		}
++
++		function showInputtedName() {
++			const NameValue = document.querySelectorAll('input');
++			alert(NameValue.values);
++		}
++
++		function clearTextFields() {
++			const inpts = [
++				document.getElementById('text_input_name'),
++				document.getElementById('text_input_user_Agent')
++			]
++			inpts.forEach(element => {
++				inpts.values = "";
++				console.log(npts.length);
++			});
++		}
++
++		function logErrorAsInfoMessageGettingValuesDisplayed() {
++			let errDisplayingValues = "Unable to read correct values";
++			console.log(errDisplayingValues);
++		}
++
++		function getValues() {
++			let vtr = Math.random().toPrecision(4);
++			let hwc = Math.random().toPrecision(4);
++			document.querySelector('input[id="vtrpercent"]').value = vtr;
++			document.querySelector('input[id="hwclock"]').value = hwc;
++
++			// Send error to console
++			logErrorAsInfoMessageGettingValuesDisplayed();
++		}
++
++		function getRA() {
++			document.getElementById('text_input_repoaddr').value = "https://github.com/nslabspl/ejs";
++		}
++
++	</script>
++	<!-- End of JS -->
++	<div class="box">
++		<form class="formtext" id="welcomeForm" target="_self" action="bd_dash.html">
++			<fieldset class="box a">
++				<legend class="legend_css">Basic info</legend>
++				Name: <input id="text_input_name" type="text" placeholder="Enter your name (required)" /><br /><br />
++				userAgent: <input id="text_input_user_Agent" type="text" onmouseenter="this.value == showUa()" readonly
++					placeholder="Hover to reveal" /><br /><br />
++				This app is served from:
++				<input id="text_input_repoaddr" type="text" onmouseenter="this.value == getRA()"
++					placeholder="Hover to reveal" readonly /><br /><br />
++			</fieldset>
++			<fieldset class="box b">
++				VTR (%):<br><input id="vtrpercent" type="text" readonly onmouseenter="this.value == getValues()"
++					placeholder="Hover to reveal" /><br><br />
++				H/W (d)clock:<br><input id="hwclock" type="text" readonly onmousedown="this.value == getValues()"
++					placeholder="Hover to reveal" /><br><br />
++			</fieldset>
++			<fieldset class="box-c">
++				<legend class="legend_css">Misc</legend>
++				<!--Insert text to display: <input id="text_input_disp" type="text" placeholder="Insert text" maxlength="10"/>
++				<button id="btn_displ_txt" onclick="
++				let v = document.getElementById('text_input_disp');
++				alert();
++				">Display text</button>-->
++				<button id="showUA-btn" onclick="showUa()">Show userAgent</button>
++				<button id="openPageBtn" onclick="openPage()">Open GitHub</button>
++				<button id="showName" onclick="showInputtedName()" disabled>Show current name</button>
++				<button id="clearTxt" onclick="clearTextFields()">Clear inputs</button>
++				<button id="generateHWValues" onclick="getValues()" disabled>Generate values</button>
++			</fieldset>
++		</form>
++	</div>
++</body>
++
++</html>
+\ No newline at end of file
+diff --git a/webfront/index.html b/webfront/index.html
+index 696f0d0..ebe79bb 100644
+--- a/webfront/index.html
++++ b/webfront/index.html
+@@ -1,13 +1,10 @@
+-<html>
++<!DOCTYPE html>
+ 	<head>
+ 		<meta charset="utf-8">
+ 		<meta aria-sort="ascending">
+ 		<title>Landing page</title>
+ 	</head>
+ 	<body>
+-		<script src="../js/appInfo.js">
+-			
+-			showDummyData();
+-		</script>
++		This is just a test
+ 	</body>
+ </html>
+\ No newline at end of file
