@@ -9,6 +9,27 @@
   "files.autoSave": "afterDelay",
   "files.autoSaveDelay": 100,
   "workbench.colorTheme": "Default Dark+ Experimental",
+  "[shellscript]": {
+    "editor.defaultFormatter": "foxundermoon.shell-format"
+  },
+
+  "shellcheck.enable": true,
+  "shellformat.effectLanguages": [
+    "shellscript",
+    "dockerfile",
+    "dotenv",
+    "hosts",
+    "jvmoptions",
+    "ignore",
+    "gitignore",
+    "properties",
+    "spring-boot-properties",
+    "azcli",
+    "bats"
+  ],
+  "shellcheck.enableQuickFix": true,
+  "shellcheck.logLevel": "info",
+  "shellformat.flag": null,
   "git.enableSmartCommit": false,
   "git.smartCommitChanges": "tracked"
 }

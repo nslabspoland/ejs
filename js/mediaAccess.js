@@ -2,9 +2,11 @@
  * @author @wojtekxtx
  * @class media/access
  * @description Defines access to user media devices and controls app permissions.
- * @see https://4programmers.net/Forum/JavaScript/365524-dostep_do_mikrofonu_i_co_dalej_jak_korzystac_z_webrtc
  * @version 0.0.1
  */
+
+import * as dotenv from 'dotenv';
+
 function getAllAvailableUserMedia() {
   return [
     element = document.querySelector('video'),

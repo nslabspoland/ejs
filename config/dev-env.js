@@ -52,7 +52,4 @@ export function getKeyByID(key, run = Promise.resolve(), time = 500) {
  */
 // @ts-ignore
 function setEnviromentVariables() {
-    require('dotenv').config();
 }
-
-module.exports = setEnviromentVariables
