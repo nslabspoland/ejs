@@ -49,12 +49,10 @@ export function getKeyByID(key, run = Promise.resolve(), time = 500) {
 
 /**
  * @author @wojtekxtx
- * @todo: add .env file
  */
 // @ts-ignore
 function setEnviromentVariables() {
     require('dotenv').config();
-    console.log(process.env);
 }
 
 module.exports = setEnviromentVariables
