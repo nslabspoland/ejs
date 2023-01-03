@@ -11,13 +11,17 @@ function getAllAvailableUserMedia() {
     navigator.mediaDevices
       .getUserMedia({
         audio: true,
-        video: false,
+        video: true,
       })
       .then(function Stream() {
-        // Do sth with media stream
+        let videoPlayer = document.querySelector('video');
+        document.getElementById('playvid_btn') = videoPlayer.play();
+        videoPlayer.height = 1280;
+        videoPlayer.width = 960;
       })
-      .catch(function (error) {
-        // Handle error
+      .catch(function (e) {
+        e = Error.prototype.message();
+        console.error(e);
       }),
   ];
 }
