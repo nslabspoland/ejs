@@ -10,6 +10,33 @@
 			"name": "Launch Chrome against localhost",
 			"url": "http://localhost:8080",
 			"webRoot": "${workspaceFolder}"
+		},
+		{
+			"name": "Attach to running $P${relativeFileDirname}",
+			"port": 9229,
+			"request": "attach",
+			"skipFiles": [
+				"<node_internals>/**"
+			],
+			"type": "node"
+		}
+	],
+	"inputs": [
+		{
+			"type": "promptString",
+			"id": "1",
+			"default": "${cwd}",
+			"password": false,
+			"description": "null"
+		}
+	],
+	"compounds": [
+		{
+			"name": "Compound",
+			"configurations": [
+				"Attach to running $P${relativeFileDirname}",
+				"Launch Chrome against localhost"
+			]
 		}
 	]
 }
