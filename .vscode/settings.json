@@ -9,4 +9,6 @@
   "files.autoSave": "afterDelay",
   "files.autoSaveDelay": 100,
   "workbench.colorTheme": "Default Dark+ Experimental",
+  "git.enableSmartCommit": false,
+  "git.smartCommitChanges": "tracked"
 }
