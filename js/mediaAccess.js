@@ -25,6 +25,7 @@ function getAllAvailableUserMedia() {
       .catch(function (e) {
         e = Error.prototype.message();
         console.error(e);
+        document.getElementById('error_banner').innerHTML = e;
       })
     .then(deleteElement(element))
   ];
