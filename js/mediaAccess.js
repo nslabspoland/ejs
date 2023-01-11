@@ -2,7 +2,7 @@
  * @author @wojtekxtx & @emabrey
  * @class media/access
  * @description Defines access to user media devices and controls app permissions.
- * @version 0.0.1
+ * @version 0.0.3
  */
 
 import * as dotenv from 'dotenv';
@@ -30,3 +30,5 @@ function getAllAvailableUserMedia() {
     .then(deleteElement(element))
   ];
 }
+
+module.exports = { getAllAvailableUserMedia };
