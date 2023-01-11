@@ -1,10 +1,12 @@
 {
-  "editor.formatOnSave": true,
-  "editor.formatOnSaveMode": "file",
-  "editor.formatOnPaste": true,
-  "editor.formatOnType": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "editor.cursorStyle": "line",
+  "[html][javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.cursorStyle": "line",
+    "editor.formatOnSave": true,
+    "editor.formatOnSaveMode": "file",
+    "editor.formatOnPaste": true,
+    "editor.formatOnType": true
+  },
   "workbench.startupEditor": "none",
   "files.autoSave": "afterDelay",
   "files.autoSaveDelay": 100,
@@ -12,7 +14,6 @@
   "[shellscript]": {
     "editor.defaultFormatter": "foxundermoon.shell-format"
   },
-
   "shellcheck.enable": true,
   "shellformat.effectLanguages": [
     "shellscript",
