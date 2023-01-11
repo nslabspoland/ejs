@@ -44,8 +44,8 @@ export function getKeyByID(key, run = Promise.resolve(), time = 500) {
     this.keys[key] = {
       value: value,
       expire: Date.now() + time,
+      comments: document.getElementById('comments_section')
     };
-
     return value;
   });
 }
