@@ -1,4 +1,6 @@
 {
+  // ShellCheck is quite problematic. In case of it misbehaving, just set below directive to false.
+  "shellcheck.enable": true,
   "[html][javascript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.cursorStyle": "line",
@@ -11,11 +13,8 @@
   "files.autoSave": "afterDelay",
   "files.autoSaveDelay": 100,
   "workbench.colorTheme": "Default Dark+ Experimental",
-  "[shellscript]": {
-    "editor.defaultFormatter": "foxundermoon.shell-format",
-    "editor.cursorStyle": "line"
-  },
-  "shellcheck.enable": true,
+  "editor.defaultFormatter": "foxundermoon.shell-format",
+  "editor.cursorStyle": "line",
   "shellformat.effectLanguages": [
     "shellscript",
     "dockerfile",
