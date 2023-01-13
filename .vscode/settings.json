@@ -12,7 +12,8 @@
   "files.autoSaveDelay": 100,
   "workbench.colorTheme": "Default Dark+ Experimental",
   "[shellscript]": {
-    "editor.defaultFormatter": "foxundermoon.shell-format"
+    "editor.defaultFormatter": "foxundermoon.shell-format",
+    "editor.cursorStyle": "line"
   },
   "shellcheck.enable": true,
   "shellformat.effectLanguages": [
