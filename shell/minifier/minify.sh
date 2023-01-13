@@ -159,6 +159,8 @@ body=""
 line=2
 linesInFile=$(wc -l < "$file")
 
+# shellcheck disable=SC2004
+# shellcheck disable=SC2086
 while [ $(($line-1)) -le $linesInFile ];do
 	if [ "$debug" == "1" ];then
 		echo $line
