@@ -84,7 +84,7 @@
 	<!-- End of JS -->
 	<div class="box">
 		<form class="formtext" id="welcomeForm" target="_self" action="bd_dash.html">
-			<fieldset class="box a">
+			<fieldset class="box a" id="fs">
 				<legend class="legend_css">Basic info</legend>
 				Name: <input id="text_input_name" type="text" placeholder="Enter your name (required)" /><br /><br />
 				userAgent: <input id="text_input_user_Agent" type="text" onmouseenter="this.value == showUa()" readonly
@@ -99,7 +99,7 @@
 				H/W (d)clock:<br><input id="hwclock" type="text" readonly onmousedown="this.value == getValues()"
 					placeholder="Hover to reveal" /><br><br />
 			</fieldset>
-			<fieldset class="box-c">
+			<fieldset class="box-c" id="fs">
 				<legend class="legend_css">Misc</legend>
 				<!--Insert text to display: <input id="text_input_disp" type="text" placeholder="Insert text" maxlength="10"/>
 				<button id="btn_displ_txt" onclick="
