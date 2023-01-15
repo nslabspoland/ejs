@@ -1,6 +1,5 @@
 function deleteElement(element) {
-	// Do not display element
-	let el = document.getElementById(element).style.display = "none";
+	document.body.classList.remove(element);
 }
 
 export {deleteElement}
