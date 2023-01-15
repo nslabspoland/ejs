@@ -17,7 +17,22 @@ function getAllAvailableUserMedia() {
       })
       .then(function Stream() {
         dotenv.config();
-        document.getElementById('playvid_btn') = element.play();
+
+        /**
+         * @todo: #7 rebuild using actionListener()
+         * @todo: #8 make some logic that will handle playing video
+         * @author: @wojtekxtx
+         * @author: @emabrey
+         * @var vid
+         * @var video
+         */
+        var vid = document.getElementById('video');
+        vid.addEventListener('click', function (Event) {
+          Event.preventDefault();
+          // See #8 on GitHub
+        })
+
+
         element.height = 1280;
         element.width = 960;
         element.autoplay = process.env.V_AUTOPLAY;
@@ -27,7 +42,7 @@ function getAllAvailableUserMedia() {
         console.error(e);
         document.getElementById('error_banner').innerHTML = e;
       })
-    .then(deleteElement(element))
+      .then(deleteElement(element))
   ];
 }
 
