@@ -1,5 +1,12 @@
+import { currentDate } from "../config/dev-env";
+
 function deleteElement(element) {
-	document.body.classList.remove(element);
+  document.body.classList.remove(element);
 }
 
-export {deleteElement}
+function reformatDate() {
+  let formattedDate = currentDate.replace("/", "-");
+  return formattedDate;
+}
+
+export { deleteElement, reformatDate };
