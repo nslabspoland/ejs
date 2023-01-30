@@ -2,8 +2,8 @@ export const repoaddress = "https://github.com/nslabspl/ejs";
 export const thisAppName = "Everything JS";
 export const instanceType = "dev";
 
-// Date
-export const currentDate = Date.now();
+// Date (in local format)
+export const currentDate = Date.now().toLocaleString();
 
 /** Experimental.
  *  May cause instability.
