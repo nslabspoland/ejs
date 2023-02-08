@@ -1,27 +1,47 @@
-export const repoaddress = "https://github.com/nslabspl/ejs";
-export const thisAppName = "Everything JS";
-export const instanceType = "dev";
-
 // Date (in local format)
 export const currentDate = Date.now().toLocaleString();
 
-/** Experimental.
- *  May cause instability.
- *  Use with caution
+// Bool if user is admin
+export const isAdmin = process.env.isAdmin;
+
+// Logged in user
+export const userLoggedIn = process.env('loggedInUserId');
+
+/**
+ * @description Definition of error strings
+ * @author @wojtekxtx
+ * @todo #11 Move to separate file
  */
+export const lockOutMessage = "This account has been locked out";
 
-export const ctxStatusOK = "200, OK";
-export const ctxStatusRedirected = "301, Redirected";
-export const ctxStatusPageNotFound = "404, Page noty found";
+// Loginrelated info
+export const lockOutTime = 3600;
+export const maxFailedLoginAttempts = 3;
 
-// Is S/W ready?
+// DB
+export const dbHost = "127.0.0.1";
+export const dbPort = 27017;
+
+/**
+ * @author @wojtekxtx
+ * @description is SW ready?
+ * @returns bool
+ * @todo #12 Decide upon usage of export vs. module.exports at the EOF
+ */
 export let isSWReady = navigator.serviceWorker.ready();
 
 // Get template info
 export function getTemplate(template, specialTags, pipeBeforeTags) {
   specialTags = specialTags || ["fragment"];
   pipeBeforeTags = pipeBeforeTags || [];
-  return parseTemplate(specialTags, pipeBeforeTags)(template);
+  return (
+    parseTemplate(specialTags, pipeBeforeTags)(template) ||
+    console.error({
+      error: errTemplateNotParseable, // <- Error message
+      Date: currentDate, // <- Current date (of LOGGING)
+      Timestamp: Math.floor(currentDate / 1000) // <- Timestamp (date) of event OCCURANCE (in Unix format)
+    })
+  );
 }
 
 export function getKeyByID(key, run = Promise.resolve(), time = 500) {
@@ -43,8 +63,8 @@ export function getKeyByID(key, run = Promise.resolve(), time = 500) {
   return run().then((value) => {
     this.keys[key] = {
       value: value,
-      expire: Date.now() + time,
-      comments: document.getElementById('comments_section')
+      expire: currentDate + time,
+      comments: document.getElementById("comments_section"),
     };
     return value;
   });

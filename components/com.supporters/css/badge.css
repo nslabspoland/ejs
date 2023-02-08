@@ -1,0 +1,14 @@
+@import "flex.css";
+
+.supportBadge {
+	border: none;
+	padding: 0.25rem !important;
+	width: 5px;
+	height: 5px;
+	display: flex;
+}
+
+.supportBadge:hover {
+	width: 6px;
+	height: 6px;
+}

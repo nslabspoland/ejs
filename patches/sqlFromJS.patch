@@ -1,0 +1,215 @@
+diff --git a/components/com.database/src/sql-js/db.js b/components/com.database/src/sql-js/db.js
+new file mode 100644
+index 0000000..d2d234d
+--- /dev/null
++++ b/components/com.database/src/sql-js/db.js
+@@ -0,0 +1,79 @@
++import initSqlJs from "sql.js";
++import User from "../../../com.users/src/user.class";
++import { paths } from "../../../constants";
++
++const user = new User();
++
++const SQL = await initSqlJs({
++	// Required to load the wasm binary asynchronously. Of course, you can host it wherever you want
++	// You can omit locateFile completely when running in node
++	locateFile: (file) => paths.dbPath + "/" + file,
++});
++
++// Create a database
++const db = new SQL.Database();
++// NOTE: You can also use new SQL.Database(data) where
++// data is an Uint8Array representing an SQLite database file
++
++// Execute a single SQL string that contains multiple statements
++let sqlstr = "CREATE TABLE hello (a int, b char);";
++db.run(sqlstr); // Run the query without returning anything
++
++// Prepare an sql statement
++const stmt = db.prepare(sqlstr);
++
++// Bind values to the parameters and fetch the results of the query
++const result = stmt.getAsObject({ sqlstr });
++console.log(result); // Will print {a:1, b:'world'}
++
++// Bind other values
++stmt.bind([0]);
++while (stmt.step()) console.log(stmt.get()); // Will print [0, 'hello']
++// free the memory used by the statement
++stmt.free();
++// You can not use your statement anymore once it has been freed.
++// But not freeing your statements causes memory leaks. You don't want that.
++
++const res = db.exec("SELECT * FROM hello");
++/*
++[
++  {columns:['a','b'], values:[[0,'hello'],[1,'world']]}
++]
++*/
++
++// You can also use JavaScript functions inside your SQL code
++// Create the js function you need
++function add(a, b) {
++	return a + b;
++}
++// Specifies the SQL function's name, the number of it's arguments, and the js function to use
++db.create_function("add_js", add);
++// Run a query in which the function is used
++db.run("INSERT INTO hello VALUES (add_js(7, 3), add_js('Hello ', 'world'));"); // Inserts 10 and 'Hello world'
++
++// You can create custom aggregation functions, by passing a name
++// and a set of functions to `db.create_aggregate`:
++//
++// - an `init` function. This function receives no argument and returns
++//   the initial value for the state of the aggregate function.
++// - a `step` function. This function takes two arguments
++//    - the current state of the aggregation
++//    - a new value to aggregate to the state
++//  It should return a new value for the state.
++// - a `finalize` function. This function receives a state object, and
++//   returns the final value of the aggregate. It can be omitted, in which case
++//   the final value of the state will be returned directly by the aggregate function.
++//
++// Here is an example aggregation function, `json_agg`, which will collect all
++// input values and return them as a JSON array:
++db.create_aggregate("json_agg", {
++	init: () => [],
++	step: (state, val) => [...state, val],
++	finalize: (state) => JSON.stringify(state),
++});
++
++db.exec("SELECT json_agg(column1) FROM (VALUES ('hello'), ('world'))");
++// -> The result of the query is the string '["hello","world"]'
++
++// Export the database to an Uint8Array containing the SQLite database file
++const binaryArray = db.export();
+diff --git a/components/com.users/src/user.class.js b/components/com.users/src/user.class.js
+index c5644ef..fe665f6 100644
+--- a/components/com.users/src/user.class.js
++++ b/components/com.users/src/user.class.js
+@@ -50,4 +50,8 @@ export default class User {
+ 			alert('Script is unable to continue');
+ 		}
+ 	}
++
++	getUserName() {
++		return this.username;
++	}
+ }
+diff --git a/components/constants.js b/components/constants.js
+index d5e3c77..7381f7b 100644
+--- a/components/constants.js
++++ b/components/constants.js
+@@ -6,25 +6,27 @@ const tmpPath = join(baseDir, "tmp/");
+ const loader = join(baseDir, "loader.js");
+ const app = join(baseDir, "app.js");
+ const pidfile = join(baseDir, "pidfile");
+-const config = join(baseDir, "config/dev-env.js");
++const config = join(baseDir, "config/devEnvClass.js");
+ const currentPackage = join(baseDir, "package.json");
+ const nodeModules = join(baseDir, "node_modules");
++const dbPath = join(baseDir, "database");
+ const pluginNamePattern =
+-  /^(@[\w-]+\/)?nodebb-(theme|plugin|widget|rewards)-[\w-]+$/;
++	/^(@[\w-]+\/)?nodebb-(theme|plugin|widget|rewards)-[\w-]+$/;
+ const themeNamePattern = /^(@[\w-]+\/)?nodebb-theme-[\w-]+$/;
+ const paths = {
+-  baseDir,
+-  loader,
+-  app,
+-  pidfile,
+-  config,
+-  currentPackage,
+-  installPackage,
+-  nodeModules,
+-  tmpPath
++	baseDir,
++	loader,
++	app,
++	pidfile,
++	config,
++	currentPackage,
++	installPackage,
++	nodeModules,
++	tmpPath,
++	dbPath,
+ };
+ const errDisplayingValues = "Unable to display values";
+ const cookiesNotEnabled = "Cookies not supported/enabled";
+ const dataValid = "User data have required length and format";
+ 
+-export { app, paths, errDisplayingValues, cookiesNotEnabled, dataValid };
+\ No newline at end of file
++export { app, paths, errDisplayingValues, cookiesNotEnabled, dataValid };
+diff --git a/config/devEnvClass.js b/config/devEnvClass.js
+index 2ea79eb..e6274c9 100644
+--- a/config/devEnvClass.js
++++ b/config/devEnvClass.js
+@@ -1,4 +1,4 @@
+-import { cookiesNotEnabled } from "../components/constants";
++import { cookiesNotEnabled, paths } from "../components/constants";
+ import { worker } from "../js/setup_worker";
+ import { ctxStatusOK, ctxStatusRequestBypassed, ctxStatusRequestException, ctxStatusRequestStarted, ctxStatusRequestUnhandled } from "./dev-env";
+ 
+@@ -60,6 +60,10 @@ export default class devConfig {
+ 		return parseTemplate(specialTags, pipeBeforeTags)(template);
+ 	}
+ 
++	getWorkingDir() {
++		return paths.app.toString();
++	}
++
+ 	getKeyByID(key, run = Promise.resolve(), time) {
+ 		time = 500; // ms
+ 		if (this.keys[key] && Date.now() < this.keys[key].expire) {
+diff --git a/package-lock.json b/package-lock.json
+index 7eb6c38..0a9fc39 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -6,7 +6,8 @@
+     "": {
+       "dependencies": {
+         "dotenv": "^16.0.3",
+-        "msw": "^0.49.2"
++        "msw": "^0.49.2",
++        "sql.js": "^1.8.0"
+       }
+     },
+     "node_modules/@mswjs/cookies": {
+@@ -1043,6 +1044,11 @@
+       "resolved": "https://registry.npmjs.org/signal-exit/-/signal-exit-3.0.7.tgz",
+       "integrity": "sha512-wnD2ZE+l+SPC/uoS0vXeE9L1+0wuaMqKlfz9AMUo38JsyLSBWSFcHR1Rri62LZc12vLr1gb3jl7iwQhgwpAbGQ=="
+     },
++    "node_modules/sql.js": {
++      "version": "1.8.0",
++      "resolved": "https://registry.npmjs.org/sql.js/-/sql.js-1.8.0.tgz",
++      "integrity": "sha512-3HD8pSkZL+5YvYUI8nlvNILs61ALqq34xgmF+BHpqxe68yZIJ1H+sIVIODvni25+CcxHUxDyrTJUL0lE/m7afw=="
++    },
+     "node_modules/strict-event-emitter": {
+       "version": "0.2.8",
+       "resolved": "https://registry.npmjs.org/strict-event-emitter/-/strict-event-emitter-0.2.8.tgz",
+@@ -1943,6 +1949,11 @@
+       "resolved": "https://registry.npmjs.org/signal-exit/-/signal-exit-3.0.7.tgz",
+       "integrity": "sha512-wnD2ZE+l+SPC/uoS0vXeE9L1+0wuaMqKlfz9AMUo38JsyLSBWSFcHR1Rri62LZc12vLr1gb3jl7iwQhgwpAbGQ=="
+     },
++    "sql.js": {
++      "version": "1.8.0",
++      "resolved": "https://registry.npmjs.org/sql.js/-/sql.js-1.8.0.tgz",
++      "integrity": "sha512-3HD8pSkZL+5YvYUI8nlvNILs61ALqq34xgmF+BHpqxe68yZIJ1H+sIVIODvni25+CcxHUxDyrTJUL0lE/m7afw=="
++    },
+     "strict-event-emitter": {
+       "version": "0.2.8",
+       "resolved": "https://registry.npmjs.org/strict-event-emitter/-/strict-event-emitter-0.2.8.tgz",
+diff --git a/package.json b/package.json
+index bf5152c..16ca645 100644
+--- a/package.json
++++ b/package.json
+@@ -18,6 +18,7 @@
+   },
+   "dependencies": {
+     "dotenv": "^16.0.3",
+-    "msw": "^0.49.2"
++    "msw": "^0.49.2",
++    "sql.js": "^1.8.0"
+   }
+ }

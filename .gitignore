@@ -2,5 +2,5 @@ tests
 node_modules
 *kraken
 *cnf
-*conf*
+config/log*
 *.env

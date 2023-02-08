@@ -1,0 +1,108 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "MegaWebSearchApi",
+    "description": "Search for whatever in multiple browsers at once",
+    "version": "0.1"
+  },
+  "servers": [
+    {
+      "url": "https://virtserver.swaggerhub.com/wojtekxtx/MWEApi/0.1",
+      "description": "SwaggerHub API Auto Mocking"
+    },
+    {
+      "url": "https://google.com",
+      "description": "Google"
+    },
+    {
+      "url": "https://bing.com",
+      "description": "Bing"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Query",
+      "description": "Your search query"
+    },
+    {
+      "name": "Params",
+      "description": "Paramteres (like theming etc)"
+    }
+  ],
+  "paths": {
+    "/search": {
+      "post": {
+        "tags": [
+          "Query"
+        ],
+        "summary": "Search query",
+        "operationId": "searchquery",
+        "requestBody": {
+          "description": "Search query body",
+          "content": {
+            "application/searchquery": {
+              "schema": {
+                "$ref": "#/components/schemas/Query"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "All ok",
+            "content": {
+              "application/searchquery": {
+                "schema": {
+                  "$ref": "#/components/schemas/Query"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No page found",
+            "content": {
+              "application/html": {
+                "schema": {
+                  "$ref": "#/components/schemas/HtmlError404"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Query": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the query (if saved)"
+          },
+          "query": {
+            "maxLength": 120,
+            "type": "string",
+            "description": "Query itself"
+          }
+        },
+        "description": "Schema for search query"
+      },
+      "HtmlError404": {
+        "type": "object",
+        "properties": {
+          "errorText": {
+            "type": "string",
+            "description": "404 Not found"
+          },
+          "errorCode": {
+            "type": "integer",
+            "description": "Error code"
+          }
+        },
+        "description": "Schema for 404"
+      }
+    }
+  }
+}
