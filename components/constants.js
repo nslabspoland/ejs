@@ -28,7 +28,26 @@ const paths = {
 const errDisplayingValues = "Unable to display values";
 const cookiesNotEnabled = "Cookies not supported/enabled";
 const dataValid = "User data have required length and format";
+
+// Errors
 const userRegistrationError = "There was an error while registering";
 const passwordEmpty = "Password is empty!";
+const banExpireDateMissing = "Missing expire date!";
+const emailHasNotBeenSent =
+	"Email has not been sent. Please see ${log} for details.";
 
-export { app, paths, errDisplayingValues, cookiesNotEnabled, dataValid, userRegistrationError, passwordEmpty };
+// Affirmations
+const emailSendingSuccess = "Email has been sent.";
+
+export {
+	app,
+	paths,
+	errDisplayingValues,
+	cookiesNotEnabled,
+	dataValid,
+	userRegistrationError,
+	passwordEmpty,
+	banExpireDateMissing,
+	emailHasNotBeenSent,
+	emailSendingSuccess,
+};
