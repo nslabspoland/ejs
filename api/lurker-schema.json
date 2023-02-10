@@ -1,0 +1,33 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema",
+	"$comment": "Schema dla integracji z portalem Lurker.pl",
+	"description": "Schema dla integracji z portalem Lurker.pl",
+	"properties": {
+		"Key": {
+			"type": "string",
+			"description": "Key used for auth()",
+			"maxLength": 128
+		},
+		"Pass": {
+			"type": "string",
+			"description": "Password for key",
+			"minLength":16,
+			"maxLength": 36
+		},
+		"WebSocket": {
+			"description": "Socket na jakim jest nasłuch API",
+			"enum": ["api-dev.lurker.land", "api-stable.lurker.land", "localhost"]
+		},
+		"Request":{
+			"properties": {
+				"Type":{
+					"enum": ["get", "post"]
+				},
+				"SameOrigin":{
+					"type":"boolean"
+				}
+			}
+		}
+	},
+	"required": ["WebSocket"]
+}
