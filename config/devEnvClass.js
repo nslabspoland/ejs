@@ -6,6 +6,7 @@ import { ctxStatusOK, ctxStatusRequestBypassed, ctxStatusRequestException, ctxSt
  * @author @wojtekxtx
  * @class Config
  * @since 0.2
+ * @todo #17 Rewrite `dev-env.js` to class completely.
  */
 export default class devConfig {
 	super(
