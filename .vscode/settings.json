@@ -32,5 +32,6 @@
   "shellcheck.logLevel": "info",
   "shellformat.flag": null,
   "git.enableSmartCommit": false,
-  "git.smartCommitChanges": "tracked"
+  "git.smartCommitChanges": "tracked",
+  "workbench.editor.enablePreview": false
 }
