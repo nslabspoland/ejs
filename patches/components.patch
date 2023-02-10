@@ -1,0 +1,5902 @@
+diff --git a/.editorconfig b/.editorconfig
+new file mode 100644
+index 0000000..7d11362
+--- /dev/null
++++ b/.editorconfig
+@@ -0,0 +1,10 @@
++# top-most EditorConfig file
++root = true
++
++[*]
++indent_style = tab
++indent_size = 4
++end_of_line = lf
++charset = utf-8
++trim_trailing_whitespace = false
++insert_final_newline = false
+\ No newline at end of file
+diff --git a/.gitignore b/.gitignore
+index ea00a5b..594ca50 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -2,5 +2,5 @@ tests
+ node_modules
+ *kraken
+ *cnf
+-*conf*
++config/log*
+ *.env
+\ No newline at end of file
+diff --git a/.markdownlint.json b/.markdownlint.json
+new file mode 100644
+index 0000000..1f92ccf
+--- /dev/null
++++ b/.markdownlint.json
+@@ -0,0 +1,4 @@
++{
++	"MD032": false,
++	"MD013": false
++}
+\ No newline at end of file
+diff --git a/.prettierrc.json b/.prettierrc.json
+new file mode 100644
+index 0000000..35b9411
+--- /dev/null
++++ b/.prettierrc.json
+@@ -0,0 +1,5 @@
++{
++	"arrowParens": "always",
++	"bracketSpacing": true,
++	"editorconfig": true
++}
+\ No newline at end of file
+diff --git a/api/wojtekxtx-MWEApi-0.1-resolved.json b/api/0.1-resolved.json
+new file mode 100644
+index 0000000..6b569f4
+--- /dev/null
++++ b/api/0.1-resolved.json
+@@ -0,0 +1,108 @@
++{
++  "openapi": "3.0.0",
++  "info": {
++    "title": "MegaWebSearchApi",
++    "description": "Search for whatever in multiple browsers at once",
++    "version": "0.1"
++  },
++  "servers": [
++    {
++      "url": "https://virtserver.swaggerhub.com/wojtekxtx/MWEApi/0.1",
++      "description": "SwaggerHub API Auto Mocking"
++    },
++    {
++      "url": "https://google.com",
++      "description": "Google"
++    },
++    {
++      "url": "https://bing.com",
++      "description": "Bing"
++    }
++  ],
++  "tags": [
++    {
++      "name": "Query",
++      "description": "Your search query"
++    },
++    {
++      "name": "Params",
++      "description": "Paramteres (like theming etc)"
++    }
++  ],
++  "paths": {
++    "/search": {
++      "post": {
++        "tags": [
++          "Query"
++        ],
++        "summary": "Search query",
++        "operationId": "searchquery",
++        "requestBody": {
++          "description": "Search query body",
++          "content": {
++            "application/searchquery": {
++              "schema": {
++                "$ref": "#/components/schemas/Query"
++              }
++            }
++          }
++        },
++        "responses": {
++          "200": {
++            "description": "All ok",
++            "content": {
++              "application/searchquery": {
++                "schema": {
++                  "$ref": "#/components/schemas/Query"
++                }
++              }
++            }
++          },
++          "404": {
++            "description": "No page found",
++            "content": {
++              "application/html": {
++                "schema": {
++                  "$ref": "#/components/schemas/HtmlError404"
++                }
++              }
++            }
++          }
++        }
++      }
++    }
++  },
++  "components": {
++    "schemas": {
++      "Query": {
++        "type": "object",
++        "properties": {
++          "name": {
++            "type": "string",
++            "description": "Name of the query (if saved)"
++          },
++          "query": {
++            "maxLength": 120,
++            "type": "string",
++            "description": "Query itself"
++          }
++        },
++        "description": "Schema for search query"
++      },
++      "HtmlError404": {
++        "type": "object",
++        "properties": {
++          "errorText": {
++            "type": "string",
++            "description": "404 Not found"
++          },
++          "errorCode": {
++            "type": "integer",
++            "description": "Error code"
++          }
++        },
++        "description": "Schema for 404"
++      }
++    }
++  }
++}
+\ No newline at end of file
+diff --git a/components/com.blacklist/README.md b/components/com.blacklist/README.md
+new file mode 100644
+index 0000000..8012b70
+--- /dev/null
++++ b/components/com.blacklist/README.md
+@@ -0,0 +1,11 @@
++# Blacklista
++
++Czarna lista to miejsce, gdzie wrzucasz wszystkie treści, których nie chcesz oglądać w serwisie. Na chwilę obecną można blokować wybrane tagi, domeny oraz userów.
++
++Jeśli zablokujesz tag, nie będzie sie nigdzie wyświelać (strona główna oraz mikroblog), ale nadal będziesz mógł wejść na jego stronę i tam przeglądać wpisy.
++
++Jeśli z kolei zablokujesz usera, wówczas: 
++- nie może Cię wołać, 
++- nie może do Ciebie pisać PW, 
++- nie będziesz widzieć żadnych jego wpisów. 
++Ale nadal user ten będzie mógł komentować Twoje posty (pisać odpowiedzi), oceniać Twoje treści (upvotes / downvotes) oraz je czytać. Jeśli danego usera chcesz całkowicie wyciąć ze swojego zasięgu, skorzystaj z BANLISTY. Zbanowanie użytkownika sprawi, że zniknie on na zawsze z Twojego życia.
+\ No newline at end of file
+diff --git a/components/com.blacklist/src/blacklist.js b/components/com.blacklist/src/blacklist.js
+new file mode 100644
+index 0000000..aeabf52
+--- /dev/null
++++ b/components/com.blacklist/src/blacklist.js
+@@ -0,0 +1,181 @@
++"use strict";
++
++const ipaddr = require("ipaddr.js");
++const winston = require("winston");
++const _ = require("lodash");
++const validator = require("validator");
++const db = require("../../com.database");
++const pubsub = require("../pubsub");
++const plugins = require("../plugins");
++const analytics = require("../analytics");
++
++const Blacklist = module.exports;
++Blacklist._rules = {};
++
++Blacklist.load = async function () {
++  let rules = await Blacklist.get();
++  rules = Blacklist.validate(rules);
++
++  winston.verbose(
++    `[meta/blacklist] Loading ${rules.valid.length} blacklist rule(s)${
++      rules.duplicateCount > 0
++        ? `, ignored ${rules.duplicateCount} duplicate(s)`
++        : ""
++    }`
++  );
++  if (rules.invalid.length) {
++    winston.warn(
++      `[meta/blacklist] ${rules.invalid.length} invalid blacklist rule(s) were ignored.`
++    );
++  }
++
++  Blacklist._rules = {
++    ipv4: rules.ipv4,
++    ipv6: rules.ipv6,
++    cidr: rules.cidr,
++    cidr6: rules.cidr6,
++  };
++};
++
++pubsub.on("blacklist:reload", Blacklist.load);
++
++Blacklist.save = async function (rules) {
++  await db.setObject("ip-blacklist-rules", { rules: rules });
++  await Blacklist.load();
++  pubsub.publish("blacklist:reload");
++};
++
++Blacklist.get = async function () {
++  const data = await db.getObject("ip-blacklist-rules");
++  return data && data.rules;
++};
++
++Blacklist.test = async function (clientIp) {
++  // Some handy test addresses
++  // clientIp = '2001:db8:85a3:0:0:8a2e:370:7334'; // IPv6
++  // clientIp = '127.0.15.1'; // IPv4
++  // clientIp = '127.0.15.1:3443'; // IPv4 with port strip port to not fail
++  if (!clientIp) {
++    return;
++  }
++  clientIp =
++    clientIp.split(":").length === 2 ? clientIp.split(":")[0] : clientIp;
++
++  let addr;
++  try {
++    addr = ipaddr.parse(clientIp);
++  } catch (err) {
++    winston.error(`[meta/blacklist] Error parsing client IP : ${clientIp}`);
++    throw err;
++  }
++
++  if (
++    !Blacklist._rules.ipv4.includes(clientIp) && // not explicitly specified in ipv4 list
++    !Blacklist._rules.ipv6.includes(clientIp) && // not explicitly specified in ipv6 list
++    !Blacklist._rules.cidr.some((subnet) => {
++      const cidr = ipaddr.parseCIDR(subnet);
++      if (addr.kind() !== cidr[0].kind()) {
++        return false;
++      }
++      return addr.match(cidr);
++    }) // not in a blacklisted IPv4 or IPv6 cidr range
++  ) {
++    try {
++      // To return test failure, pass back an error in callback
++      await plugins.hooks.fire("filter:blacklist.test", { ip: clientIp });
++    } catch (err) {
++      analytics.increment("blacklist");
++      throw err;
++    }
++  } else {
++    const err = new Error("[[error:blacklisted-ip]]");
++    err.code = "blacklisted-ip";
++
++    analytics.increment("blacklist");
++    throw err;
++  }
++};
++
++Blacklist.validate = function (rules) {
++  rules = (rules || "").split("\n");
++  const ipv4 = [];
++  const ipv6 = [];
++  const cidr = [];
++  const invalid = [];
++  let duplicateCount = 0;
++
++  const inlineCommentMatch = /#.*$/;
++  const whitelist = ["127.0.0.1", "::1", "::ffff:0:127.0.0.1"];
++
++  // Filter out blank lines and lines starting with the hash character (comments)
++  // Also trim inputs and remove inline comments
++  rules = rules
++    .map((rule) => {
++      rule = rule.replace(inlineCommentMatch, "").trim();
++      return rule.length && !rule.startsWith("#") ? rule : null;
++    })
++    .filter(Boolean);
++
++  // Filter out duplicates
++  const uniqRules = _.uniq(rules);
++  duplicateCount += rules.length - uniqRules.length;
++  rules = uniqRules;
++
++  // Filter out invalid rules
++  rules = rules.filter((rule) => {
++    let addr;
++    let isRange = false;
++    try {
++      addr = ipaddr.parse(rule);
++    } catch (e) {
++      // Do nothing
++    }
++
++    try {
++      addr = ipaddr.parseCIDR(rule);
++      isRange = true;
++    } catch (e) {
++      // Do nothing
++    }
++
++    if (!addr || whitelist.includes(rule)) {
++      invalid.push(validator.escape(rule));
++      return false;
++    }
++
++    if (!isRange) {
++      if (addr.kind() === "ipv4" && ipaddr.IPv4.isValid(rule)) {
++        ipv4.push(rule);
++        return true;
++      }
++      if (addr.kind() === "ipv6" && ipaddr.IPv6.isValid(rule)) {
++        ipv6.push(rule);
++        return true;
++      }
++    } else {
++      cidr.push(rule);
++      return true;
++    }
++    return false;
++  });
++
++  return {
++    numRules: rules.length + invalid.length,
++    ipv4: ipv4,
++    ipv6: ipv6,
++    cidr: cidr,
++    valid: rules,
++    invalid: invalid,
++    duplicateCount: duplicateCount,
++  };
++};
++
++Blacklist.addRule = async function (rule) {
++  const { valid } = Blacklist.validate(rule);
++  if (!valid.length) {
++    throw new Error("[[error:invalid-rule]]");
++  }
++  let rules = await Blacklist.get();
++  rules = `${rules}\n${valid[0]}`;
++  await Blacklist.save(rules);
++};
+diff --git a/components/com.converters/index.js b/components/com.converters/index.js
+new file mode 100644
+index 0000000..b56efcd
+--- /dev/null
++++ b/components/com.converters/index.js
+@@ -0,0 +1,3 @@
++/**
++ * @author @wojtekxtx
++ */
+\ No newline at end of file
+diff --git a/components/com.converters/src/arrayToBase64.js b/components/com.converters/src/arrayToBase64.js
+new file mode 100644
+index 0000000..4d87024
+--- /dev/null
++++ b/components/com.converters/src/arrayToBase64.js
+@@ -0,0 +1,44 @@
++// About base64: https://en.wikipedia.org/wiki/Base64
++
++/**
++ * Converts an array of bytes to base64 encoding
++ * @param {ArrayBuffer} binaryData An ArrayBuffer which represents an array of bytes
++ * @returns {string} A string containing the base64 encoding of `binaryData`
++ */
++function bufferToBase64(binaryData) {
++  // The base64 encoding uses the following set of characters to encode any binary data as text
++  const base64Table =
++    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
++  // Every 3 bytes translates to 4 base64 characters, if we have less than 3 bytes we must append '=' chars as padding
++  const padding = 3 - (binaryData.byteLength % 3);
++  // Create an instance of Uint8Array, to read from the binaryData array buffer
++  const byteView = new Uint8Array(binaryData);
++  let result = "";
++
++  // Loop through all bytes in the buffer, in increments of 3 bytes
++  for (let i = 0; i < byteView.byteLength; i += 3) {
++    // Get the index for the next 4 base64 chars
++    const char1 = (byteView[i] & 252) >> 2;
++    const char2 = ((byteView[i] & 3) << 4) + ((byteView[i + 1] & 240) >> 4);
++    const char3 =
++      ((byteView[i + 1] & 15) << 2) + ((byteView[i + 2] & 192) >> 6);
++    const char4 = byteView[i + 2] & 63;
++
++    result +=
++      base64Table[char1] +
++      base64Table[char2] +
++      base64Table[char3] +
++      base64Table[char4];
++  }
++
++  // Add padding '=' chars if needed
++  if (padding !== 3) {
++    const paddedResult =
++      result.slice(0, result.length - padding) + "=".repeat(padding);
++    return paddedResult;
++  }
++
++  return result;
++}
++
++export { bufferToBase64 };
+\ No newline at end of file
+diff --git a/components/com.converters/src/upperCase.js b/components/com.converters/src/upperCase.js
+new file mode 100644
+index 0000000..bf19aaf
+--- /dev/null
++++ b/components/com.converters/src/upperCase.js
+@@ -0,0 +1,23 @@
++/**
++ * upperCaseConversion takes any case-style string and converts it to the uppercase-style string.
++ * @param {string} inputString Any case style string
++ * @returns {string} Uppercase string
++ */
++function upperCaseConversion(inputString){
++  // Take a string and split it into characters.
++  const newString = inputString.split("").map((char) => {
++    // Get a character code by the use charCodeAt method.
++    const presentCharCode = char.charCodeAt();
++    // If the character code lies between 97 to 122, it means they are in the lowercase so convert it.
++    if (presentCharCode >= 97 && presentCharCode <= 122) {
++      // Convert the case by use of the above explanation.
++      return String.fromCharCode(presentCharCode - 32);
++    }
++    // Else return the characters without any modification.
++    return char;
++  });
++  // After modification, with the help of the join method, join all the characters and return them.
++  return newString.join("");
++};
++
++export { upperCaseConversion };
+diff --git a/components/com.database/index.js b/components/com.database/index.js
+new file mode 100644
+index 0000000..b56efcd
+--- /dev/null
++++ b/components/com.database/index.js
+@@ -0,0 +1,3 @@
++/**
++ * @author @wojtekxtx
++ */
+\ No newline at end of file
+diff --git a/components/com.database/mongo/connection.js b/components/com.database/mongo/connection.js
+new file mode 100644
+index 0000000..24b0c9c
+--- /dev/null
++++ b/components/com.database/mongo/connection.js
+@@ -0,0 +1,67 @@
++"use strict";
++
++const nconf = require("nconf");
++const winston = require("winston");
++const _ = require("lodash");
++
++const connection = module.exports;
++
++connection.getConnectionString = function (mongo) {
++  mongo = mongo || nconf.get("mongo");
++  let usernamePassword = "";
++  const uri = mongo.uri || "";
++  if (mongo.username && mongo.password) {
++    usernamePassword = `${mongo.username}:${encodeURIComponent(
++      mongo.password
++    )}@`;
++  } else if (
++    !uri.includes("@") ||
++    !uri.slice(uri.indexOf("://") + 3, uri.indexOf("@"))
++  ) {
++    winston.warn("You have no mongo username/password setup!");
++  }
++
++  // Sensible defaults for Mongo, if not set
++  if (!mongo.host) {
++    mongo.host = "127.0.0.1";
++  }
++  if (!mongo.port) {
++    mongo.port = 27017;
++  }
++  const dbName = mongo.database;
++  if (dbName === undefined || dbName === "") {
++    winston.warn('You have no database name, using "nodebb"');
++    mongo.database = "nodebb";
++  }
++
++  const hosts = mongo.host.split(",");
++  const ports = mongo.port.toString().split(",");
++  const servers = [];
++
++  for (let i = 0; i < hosts.length; i += 1) {
++    servers.push(`${hosts[i]}:${ports[i]}`);
++  }
++
++  return (
++    uri || `mongodb://${usernamePassword}${servers.join()}/${mongo.database}`
++  );
++};
++
++connection.getConnectionOptions = function (mongo) {
++  mongo = mongo || nconf.get("mongo");
++  const connOptions = {
++    maxPoolSize: 10,
++    minPoolSize: 3,
++    connectTimeoutMS: 90000,
++  };
++
++  return _.merge(connOptions, mongo.options || {});
++};
++
++connection.connect = async function (options) {
++  const mongoClient = require("mongodb").MongoClient;
++  const connString = connection.getConnectionString(options);
++  const connOptions = connection.getConnectionOptions(options);
++
++  return await mongoClient.connect(connString, connOptions);
++};
+diff --git a/components/com.database/mongo/hash.js b/components/com.database/mongo/hash.js
+new file mode 100644
+index 0000000..150af4a
+--- /dev/null
++++ b/components/com.database/mongo/hash.js
+@@ -0,0 +1,323 @@
++"use strict";
++
++module.exports = function (module) {
++  const helpers = require("./helpers");
++
++  const cache = require("../cache").create("mongo");
++
++  module.objectCache = cache;
++
++  module.setObject = async function (key, data) {
++    const isArray = Array.isArray(key);
++    if (!key || !data || (isArray && !key.length)) {
++      return;
++    }
++
++    const writeData = helpers.serializeData(data);
++    if (!Object.keys(writeData).length) {
++      return;
++    }
++    try {
++      if (isArray) {
++        const bulk = module.client
++          .collection("objects")
++          .initializeUnorderedBulkOp();
++        key.forEach((key) =>
++          bulk.find({ _key: key }).upsert().updateOne({ $set: writeData })
++        );
++        await bulk.execute();
++      } else {
++        await module.client
++          .collection("objects")
++          .updateOne({ _key: key }, { $set: writeData }, { upsert: true });
++      }
++    } catch (err) {
++      if (err && err.message.startsWith("E11000 duplicate key error")) {
++        return await module.setObject(key, data);
++      }
++      throw err;
++    }
++
++    cache.del(key);
++  };
++
++  module.setObjectBulk = async function (...args) {
++    let data = args[0];
++    if (!Array.isArray(data) || !data.length) {
++      return;
++    }
++    if (Array.isArray(args[1])) {
++      console.warn(
++        "[deprecated] db.setObjectBulk(keys, data) usage is deprecated, please use db.setObjectBulk(data)"
++      );
++      // conver old format to new format for backwards compatibility
++      data = args[0].map((key, i) => [key, args[1][i]]);
++    }
++
++    try {
++      let bulk;
++      data.forEach((item) => {
++        const writeData = helpers.serializeData(item[1]);
++        if (Object.keys(writeData).length) {
++          if (!bulk) {
++            bulk = module.client
++              .collection("objects")
++              .initializeUnorderedBulkOp();
++          }
++          bulk.find({ _key: item[0] }).upsert().updateOne({ $set: writeData });
++        }
++      });
++      if (bulk) {
++        await bulk.execute();
++      }
++    } catch (err) {
++      if (err && err.message.startsWith("E11000 duplicate key error")) {
++        return await module.setObjectBulk(data);
++      }
++      throw err;
++    }
++
++    cache.del(data.map((item) => item[0]));
++  };
++
++  module.setObjectField = async function (key, field, value) {
++    if (!field) {
++      return;
++    }
++    const data = {};
++    data[field] = value;
++    await module.setObject(key, data);
++  };
++
++  module.getObject = async function (key, fields = []) {
++    if (!key) {
++      return null;
++    }
++
++    const data = await module.getObjects([key], fields);
++    return data && data.length ? data[0] : null;
++  };
++
++  module.getObjects = async function (keys, fields = []) {
++    return await module.getObjectsFields(keys, fields);
++  };
++
++  module.getObjectField = async function (key, field) {
++    if (!key) {
++      return null;
++    }
++    const cachedData = {};
++    cache.getUnCachedKeys([key], cachedData);
++    if (cachedData[key]) {
++      return cachedData[key].hasOwnProperty(field)
++        ? cachedData[key][field]
++        : null;
++    }
++    field = helpers.fieldToString(field);
++    const item = await module.client
++      .collection("objects")
++      .findOne({ _key: key }, { projection: { _id: 0, [field]: 1 } });
++    if (!item) {
++      return null;
++    }
++    return item.hasOwnProperty(field) ? item[field] : null;
++  };
++
++  module.getObjectFields = async function (key, fields) {
++    if (!key) {
++      return null;
++    }
++    const data = await module.getObjectsFields([key], fields);
++    return data ? data[0] : null;
++  };
++
++  module.getObjectsFields = async function (keys, fields) {
++    if (!Array.isArray(keys) || !keys.length) {
++      return [];
++    }
++    const cachedData = {};
++    const unCachedKeys = cache.getUnCachedKeys(keys, cachedData);
++    let data = [];
++    if (unCachedKeys.length >= 1) {
++      data = await module.client
++        .collection("objects")
++        .find(
++          {
++            _key:
++              unCachedKeys.length === 1
++                ? unCachedKeys[0]
++                : { $in: unCachedKeys },
++          },
++          { projection: { _id: 0 } }
++        )
++        .toArray();
++      data = data.map(helpers.deserializeData);
++    }
++
++    const map = helpers.toMap(data);
++    unCachedKeys.forEach((key) => {
++      cachedData[key] = map[key] || null;
++      cache.set(key, cachedData[key]);
++    });
++
++    if (!Array.isArray(fields) || !fields.length) {
++      return keys.map((key) =>
++        cachedData[key] ? { ...cachedData[key] } : null
++      );
++    }
++    return keys.map((key) => {
++      const item = cachedData[key] || {};
++      const result = {};
++      fields.forEach((field) => {
++        result[field] = item[field] !== undefined ? item[field] : null;
++      });
++      return result;
++    });
++  };
++
++  module.getObjectKeys = async function (key) {
++    const data = await module.getObject(key);
++    return data ? Object.keys(data) : [];
++  };
++
++  module.getObjectValues = async function (key) {
++    const data = await module.getObject(key);
++    return data ? Object.values(data) : [];
++  };
++
++  module.isObjectField = async function (key, field) {
++    const data = await module.isObjectFields(key, [field]);
++    return Array.isArray(data) && data.length ? data[0] : false;
++  };
++
++  module.isObjectFields = async function (key, fields) {
++    if (!key) {
++      return;
++    }
++
++    const data = {};
++    fields.forEach((field) => {
++      field = helpers.fieldToString(field);
++      if (field) {
++        data[field] = 1;
++      }
++    });
++
++    const item = await module.client
++      .collection("objects")
++      .findOne({ _key: key }, { projection: data });
++    const results = fields.map(
++      (f) => !!item && item[f] !== undefined && item[f] !== null
++    );
++    return results;
++  };
++
++  module.deleteObjectField = async function (key, field) {
++    await module.deleteObjectFields(key, [field]);
++  };
++
++  module.deleteObjectFields = async function (key, fields) {
++    if (
++      !key ||
++      (Array.isArray(key) && !key.length) ||
++      !Array.isArray(fields) ||
++      !fields.length
++    ) {
++      return;
++    }
++    fields = fields.filter(Boolean);
++    if (!fields.length) {
++      return;
++    }
++
++    const data = {};
++    fields.forEach((field) => {
++      field = helpers.fieldToString(field);
++      data[field] = "";
++    });
++    if (Array.isArray(key)) {
++      await module.client
++        .collection("objects")
++        .updateMany({ _key: { $in: key } }, { $unset: data });
++    } else {
++      await module.client
++        .collection("objects")
++        .updateOne({ _key: key }, { $unset: data });
++    }
++
++    cache.del(key);
++  };
++
++  module.incrObjectField = async function (key, field) {
++    return await module.incrObjectFieldBy(key, field, 1);
++  };
++
++  module.decrObjectField = async function (key, field) {
++    return await module.incrObjectFieldBy(key, field, -1);
++  };
++
++  module.incrObjectFieldBy = async function (key, field, value) {
++    value = parseInt(value, 10);
++    if (!key || isNaN(value)) {
++      return null;
++    }
++
++    const increment = {};
++    field = helpers.fieldToString(field);
++    increment[field] = value;
++
++    if (Array.isArray(key)) {
++      const bulk = module.client
++        .collection("objects")
++        .initializeUnorderedBulkOp();
++      key.forEach((key) => {
++        bulk.find({ _key: key }).upsert().update({ $inc: increment });
++      });
++      await bulk.execute();
++      cache.del(key);
++      const result = await module.getObjectsFields(key, [field]);
++      return result.map((data) => data && data[field]);
++    }
++    try {
++      const result = await module.client.collection("objects").findOneAndUpdate(
++        {
++          _key: key,
++        },
++        {
++          $inc: increment,
++        },
++        {
++          returnDocument: "after",
++          upsert: true,
++        }
++      );
++      cache.del(key);
++      return result && result.value ? result.value[field] : null;
++    } catch (err) {
++      if (err && err.message.startsWith("E11000 duplicate key error")) {
++        return await module.incrObjectFieldBy(key, field, value);
++      }
++      throw err;
++    }
++  };
++
++  module.incrObjectFieldByBulk = async function (data) {
++    if (!Array.isArray(data) || !data.length) {
++      return;
++    }
++
++    const bulk = module.client
++      .collection("objects")
++      .initializeUnorderedBulkOp();
++
++    data.forEach((item) => {
++      const increment = {};
++      for (const [field, value] of Object.entries(item[1])) {
++        increment[helpers.fieldToString(field)] = value;
++      }
++      bulk.find({ _key: item[0] }).upsert().update({ $inc: increment });
++    });
++    await bulk.execute();
++    cache.del(data.map((item) => item[0]));
++  };
++};
+diff --git a/components/com.database/mongo/list.js b/components/com.database/mongo/list.js
+new file mode 100644
+index 0000000..3b37ad8
+--- /dev/null
++++ b/components/com.database/mongo/list.js
+@@ -0,0 +1,115 @@
++"use strict";
++
++module.exports = function (module) {
++  const helpers = require("./helpers");
++
++  module.listPrepend = async function (key, value) {
++    if (!key) {
++      return;
++    }
++    value = Array.isArray(value) ? value : [value];
++    value.reverse();
++    const exists = await module.isObjectField(key, "array");
++    if (exists) {
++      await listPush(key, value, { $position: 0 });
++    } else {
++      await module.listAppend(key, value);
++    }
++  };
++
++  module.listAppend = async function (key, value) {
++    if (!key) {
++      return;
++    }
++    value = Array.isArray(value) ? value : [value];
++    await listPush(key, value);
++  };
++
++  async function listPush(key, values, position) {
++    values = values.map(helpers.valueToString);
++    await module.client.collection("objects").updateOne(
++      {
++        _key: key,
++      },
++      {
++        $push: {
++          array: {
++            $each: values,
++            ...(position || {}),
++          },
++        },
++      },
++      {
++        upsert: true,
++      }
++    );
++  }
++
++  module.listRemoveLast = async function (key) {
++    if (!key) {
++      return;
++    }
++    const value = await module.getListRange(key, -1, -1);
++    module.client
++      .collection("objects")
++      .updateOne({ _key: key }, { $pop: { array: 1 } });
++    return value && value.length ? value[0] : null;
++  };
++
++  module.listRemoveAll = async function (key, value) {
++    if (!key) {
++      return;
++    }
++    const isArray = Array.isArray(value);
++    if (isArray) {
++      value = value.map(helpers.valueToString);
++    } else {
++      value = helpers.valueToString(value);
++    }
++
++    await module.client.collection("objects").updateOne(
++      {
++        _key: key,
++      },
++      {
++        $pull: { array: isArray ? { $in: value } : value },
++      }
++    );
++  };
++
++  module.listTrim = async function (key, start, stop) {
++    if (!key) {
++      return;
++    }
++    const value = await module.getListRange(key, start, stop);
++    await module.client
++      .collection("objects")
++      .updateOne({ _key: key }, { $set: { array: value } });
++  };
++
++  module.getListRange = async function (key, start, stop) {
++    if (!key) {
++      return;
++    }
++
++    const data = await module.client
++      .collection("objects")
++      .findOne({ _key: key }, { array: 1 });
++    if (!(data && data.array)) {
++      return [];
++    }
++
++    return data.array.slice(start, stop !== -1 ? stop + 1 : undefined);
++  };
++
++  module.listLength = async function (key) {
++    const result = await module.client
++      .collection("objects")
++      .aggregate([
++        { $match: { _key: key } },
++        { $project: { count: { $size: "$array" } } },
++      ])
++      .toArray();
++    return Array.isArray(result) && result.length && result[0].count;
++  };
++};
+diff --git a/components/com.database/mongo/main.js b/components/com.database/mongo/main.js
+new file mode 100644
+index 0000000..da95f3f
+--- /dev/null
++++ b/components/com.database/mongo/main.js
+@@ -0,0 +1,190 @@
++"use strict";
++
++module.exports = function (module) {
++  const helpers = require("./helpers");
++  module.flushdb = async function () {
++    await module.client.dropDatabase();
++  };
++
++  module.emptydb = async function () {
++    await module.client.collection("objects").deleteMany({});
++    module.objectCache.reset();
++  };
++
++  module.exists = async function (key) {
++    if (!key) {
++      return;
++    }
++
++    if (Array.isArray(key)) {
++      const data = await module.client
++        .collection("objects")
++        .find(
++          {
++            _key: { $in: key },
++          },
++          { _id: 0, _key: 1 }
++        )
++        .toArray();
++
++      const map = {};
++      data.forEach((item) => {
++        map[item._key] = true;
++      });
++
++      return key.map((key) => !!map[key]);
++    }
++
++    const item = await module.client.collection("objects").findOne(
++      {
++        _key: key,
++      },
++      { _id: 0, _key: 1 }
++    );
++    return item !== undefined && item !== null;
++  };
++
++  module.scan = async function (params) {
++    const match = helpers.buildMatchQuery(params.match);
++    return await module.client
++      .collection("objects")
++      .distinct("_key", { _key: { $regex: new RegExp(match) } });
++  };
++
++  module.delete = async function (key) {
++    if (!key) {
++      return;
++    }
++    await module.client.collection("objects").deleteMany({ _key: key });
++    module.objectCache.del(key);
++  };
++
++  module.deleteAll = async function (keys) {
++    if (!Array.isArray(keys) || !keys.length) {
++      return;
++    }
++    await module.client
++      .collection("objects")
++      .deleteMany({ _key: { $in: keys } });
++    module.objectCache.del(keys);
++  };
++
++  module.get = async function (key) {
++    if (!key) {
++      return;
++    }
++
++    const objectData = await module.client
++      .collection("objects")
++      .findOne({ _key: key }, { projection: { _id: 0 } });
++
++    // fallback to old field name 'value' for backwards compatibility #6340
++    let value = null;
++    if (objectData) {
++      if (objectData.hasOwnProperty("data")) {
++        value = objectData.data;
++      } else if (objectData.hasOwnProperty("value")) {
++        value = objectData.value;
++      }
++    }
++    return value;
++  };
++
++  module.set = async function (key, value) {
++    if (!key) {
++      return;
++    }
++    await module.setObject(key, { data: value });
++  };
++
++  module.increment = async function (key) {
++    if (!key) {
++      return;
++    }
++    const result = await module.client.collection("objects").findOneAndUpdate(
++      {
++        _key: key,
++      },
++      {
++        $inc: { data: 1 },
++      },
++      {
++        returnDocument: "after",
++        upsert: true,
++      }
++    );
++    return result && result.value ? result.value.data : null;
++  };
++
++  module.rename = async function (oldKey, newKey) {
++    await module.client
++      .collection("objects")
++      .updateMany({ _key: oldKey }, { $set: { _key: newKey } });
++    module.objectCache.del([oldKey, newKey]);
++  };
++
++  module.type = async function (key) {
++    const data = await module.client
++      .collection("objects")
++      .findOne({ _key: key });
++    if (!data) {
++      return null;
++    }
++    delete data.expireAt;
++    const keys = Object.keys(data);
++    if (
++      keys.length === 4 &&
++      data.hasOwnProperty("_key") &&
++      data.hasOwnProperty("score") &&
++      data.hasOwnProperty("value")
++    ) {
++      return "zset";
++    } else if (
++      keys.length === 3 &&
++      data.hasOwnProperty("_key") &&
++      data.hasOwnProperty("members")
++    ) {
++      return "set";
++    } else if (
++      keys.length === 3 &&
++      data.hasOwnProperty("_key") &&
++      data.hasOwnProperty("array")
++    ) {
++      return "list";
++    } else if (
++      keys.length === 3 &&
++      data.hasOwnProperty("_key") &&
++      data.hasOwnProperty("data")
++    ) {
++      return "string";
++    }
++    return "hash";
++  };
++
++  module.expire = async function (key, seconds) {
++    await module.expireAt(key, Math.round(Date.now() / 1000) + seconds);
++  };
++
++  module.expireAt = async function (key, timestamp) {
++    await module.setObjectField(key, "expireAt", new Date(timestamp * 1000));
++  };
++
++  module.pexpire = async function (key, ms) {
++    await module.pexpireAt(key, Date.now() + parseInt(ms, 10));
++  };
++
++  module.pexpireAt = async function (key, timestamp) {
++    timestamp = Math.min(timestamp, 8640000000000000);
++    await module.setObjectField(key, "expireAt", new Date(timestamp));
++  };
++
++  module.ttl = async function (key) {
++    return Math.round(
++      ((await module.getObjectField(key, "expireAt")) - Date.now()) / 1000
++    );
++  };
++
++  module.pttl = async function (key) {
++    return (await module.getObjectField(key, "expireAt")) - Date.now();
++  };
++};
+diff --git a/components/com.database/mongo/sets.js b/components/com.database/mongo/sets.js
+new file mode 100644
+index 0000000..33b0534
+--- /dev/null
++++ b/components/com.database/mongo/sets.js
+@@ -0,0 +1,247 @@
++"use strict";
++
++module.exports = function (module) {
++  const _ = require("lodash");
++  const helpers = require("./helpers");
++
++  module.setAdd = async function (key, value) {
++    if (!Array.isArray(value)) {
++      value = [value];
++    }
++    if (!value.length) {
++      return;
++    }
++    value = value.map((v) => helpers.valueToString(v));
++
++    await module.client.collection("objects").updateOne(
++      {
++        _key: key,
++      },
++      {
++        $addToSet: {
++          members: {
++            $each: value,
++          },
++        },
++      },
++      {
++        upsert: true,
++      }
++    );
++  };
++
++  module.setsAdd = async function (keys, value) {
++    if (!Array.isArray(keys) || !keys.length) {
++      return;
++    }
++
++    if (!Array.isArray(value)) {
++      value = [value];
++    }
++
++    value = value.map((v) => helpers.valueToString(v));
++
++    const bulk = module.client
++      .collection("objects")
++      .initializeUnorderedBulkOp();
++
++    for (let i = 0; i < keys.length; i += 1) {
++      bulk
++        .find({ _key: keys[i] })
++        .upsert()
++        .updateOne({
++          $addToSet: {
++            members: {
++              $each: value,
++            },
++          },
++        });
++    }
++    try {
++      await bulk.execute();
++    } catch (err) {
++      if (err && err.message.startsWith("E11000 duplicate key error")) {
++        return await module.setsAdd(keys, value);
++      }
++      throw err;
++    }
++  };
++
++  module.setRemove = async function (key, value) {
++    if (!Array.isArray(value)) {
++      value = [value];
++    }
++
++    value = value.map((v) => helpers.valueToString(v));
++
++    await module.client.collection("objects").updateMany(
++      {
++        _key: Array.isArray(key) ? { $in: key } : key,
++      },
++      {
++        $pullAll: { members: value },
++      }
++    );
++  };
++
++  module.setsRemove = async function (keys, value) {
++    if (!Array.isArray(keys) || !keys.length) {
++      return;
++    }
++    value = helpers.valueToString(value);
++
++    await module.client.collection("objects").updateMany(
++      {
++        _key: { $in: keys },
++      },
++      {
++        $pull: { members: value },
++      }
++    );
++  };
++
++  module.isSetMember = async function (key, value) {
++    if (!key) {
++      return false;
++    }
++    value = helpers.valueToString(value);
++
++    const item = await module.client.collection("objects").findOne(
++      {
++        _key: key,
++        members: value,
++      },
++      {
++        projection: { _id: 0, members: 0 },
++      }
++    );
++    return item !== null && item !== undefined;
++  };
++
++  module.isSetMembers = async function (key, values) {
++    if (!key || !Array.isArray(values) || !values.length) {
++      return [];
++    }
++    values = values.map((v) => helpers.valueToString(v));
++
++    const result = await module.client.collection("objects").findOne(
++      {
++        _key: key,
++      },
++      {
++        projection: { _id: 0, _key: 0 },
++      }
++    );
++    const membersSet = new Set(
++      result && Array.isArray(result.members) ? result.members : []
++    );
++    return values.map((v) => membersSet.has(v));
++  };
++
++  module.isMemberOfSets = async function (sets, value) {
++    if (!Array.isArray(sets) || !sets.length) {
++      return [];
++    }
++    value = helpers.valueToString(value);
++
++    const result = await module.client
++      .collection("objects")
++      .find(
++        {
++          _key: { $in: sets },
++          members: value,
++        },
++        {
++          projection: { _id: 0, members: 0 },
++        }
++      )
++      .toArray();
++
++    const map = {};
++    result.forEach((item) => {
++      map[item._key] = true;
++    });
++
++    return sets.map((set) => !!map[set]);
++  };
++
++  module.getSetMembers = async function (key) {
++    if (!key) {
++      return [];
++    }
++
++    const data = await module.client.collection("objects").findOne(
++      {
++        _key: key,
++      },
++      {
++        projection: { _id: 0, _key: 0 },
++      }
++    );
++    return data ? data.members : [];
++  };
++
++  module.getSetsMembers = async function (keys) {
++    if (!Array.isArray(keys) || !keys.length) {
++      return [];
++    }
++    const data = await module.client
++      .collection("objects")
++      .find(
++        {
++          _key: { $in: keys },
++        },
++        {
++          projection: { _id: 0 },
++        }
++      )
++      .toArray();
++
++    const sets = {};
++    data.forEach((set) => {
++      sets[set._key] = set.members || [];
++    });
++
++    return keys.map((k) => sets[k] || []);
++  };
++
++  module.setCount = async function (key) {
++    if (!key) {
++      return 0;
++    }
++    const data = await module.client
++      .collection("objects")
++      .aggregate([
++        { $match: { _key: key } },
++        { $project: { _id: 0, count: { $size: "$members" } } },
++      ])
++      .toArray();
++    return Array.isArray(data) && data.length ? data[0].count : 0;
++  };
++
++  module.setsCount = async function (keys) {
++    const data = await module.client
++      .collection("objects")
++      .aggregate([
++        { $match: { _key: { $in: keys } } },
++        { $project: { _id: 0, _key: 1, count: { $size: "$members" } } },
++      ])
++      .toArray();
++    const map = _.keyBy(data, "_key");
++    return keys.map((key) => (map.hasOwnProperty(key) ? map[key].count : 0));
++  };
++
++  module.setRemoveRandom = async function (key) {
++    const data = await module.client
++      .collection("objects")
++      .findOne({ _key: key });
++    if (!data) {
++      return;
++    }
++
++    const randomIndex = Math.floor(Math.random() * data.members.length);
++    const value = data.members[randomIndex];
++    await module.setRemove(data._key, value);
++    return value;
++  };
++};
+diff --git a/components/com.database/mongo/sorted.js b/components/com.database/mongo/sorted.js
+new file mode 100644
+index 0000000..8264b02
+--- /dev/null
++++ b/components/com.database/mongo/sorted.js
+@@ -0,0 +1,731 @@
++"use strict";
++
++const _ = require("lodash");
++const utils = require("../../utils");
++
++module.exports = function (module) {
++  const helpers = require("./helpers");
++  const dbHelpers = require("../helpers");
++
++  const util = require("util");
++  const sleep = util.promisify(setTimeout);
++
++  require("./sorted/add")(module);
++  require("./sorted/remove")(module);
++  require("./sorted/union")(module);
++  require("./sorted/intersect")(module);
++
++  module.getSortedSetRange = async function (key, start, stop) {
++    return await getSortedSetRange(key, start, stop, "-inf", "+inf", 1, false);
++  };
++
++  module.getSortedSetRevRange = async function (key, start, stop) {
++    return await getSortedSetRange(key, start, stop, "-inf", "+inf", -1, false);
++  };
++
++  module.getSortedSetRangeWithScores = async function (key, start, stop) {
++    return await getSortedSetRange(key, start, stop, "-inf", "+inf", 1, true);
++  };
++
++  module.getSortedSetRevRangeWithScores = async function (key, start, stop) {
++    return await getSortedSetRange(key, start, stop, "-inf", "+inf", -1, true);
++  };
++
++  async function getSortedSetRange(
++    key,
++    start,
++    stop,
++    min,
++    max,
++    sort,
++    withScores
++  ) {
++    if (!key) {
++      return;
++    }
++    const isArray = Array.isArray(key);
++    if ((start < 0 && start > stop) || (isArray && !key.length)) {
++      return [];
++    }
++    const query = { _key: key };
++    if (isArray) {
++      if (key.length > 1) {
++        query._key = { $in: key };
++      } else {
++        query._key = key[0];
++      }
++    }
++
++    if (min !== "-inf") {
++      query.score = { $gte: min };
++    }
++    if (max !== "+inf") {
++      query.score = query.score || {};
++      query.score.$lte = max;
++    }
++
++    if (max === min) {
++      query.score = max;
++    }
++
++    const fields = { _id: 0, _key: 0 };
++    if (!withScores) {
++      fields.score = 0;
++    }
++
++    let reverse = false;
++    if (start === 0 && stop < -1) {
++      reverse = true;
++      sort *= -1;
++      start = Math.abs(stop + 1);
++      stop = -1;
++    } else if (start < 0 && stop > start) {
++      const tmp1 = Math.abs(stop + 1);
++      stop = Math.abs(start + 1);
++      start = tmp1;
++    }
++
++    let limit = stop - start + 1;
++    if (limit <= 0) {
++      limit = 0;
++    }
++
++    let result = [];
++    async function doQuery(_key, fields, skip, limit) {
++      return await module.client
++        .collection("objects")
++        .find({ ...query, ...{ _key: _key } }, { projection: fields })
++        .sort({ score: sort })
++        .skip(skip)
++        .limit(limit)
++        .toArray();
++    }
++
++    if (isArray && key.length > 100) {
++      const batches = [];
++      const batch = require("../../batch");
++      const batchSize = Math.ceil(key.length / Math.ceil(key.length / 100));
++      await batch.processArray(
++        key,
++        async (currentBatch) => batches.push(currentBatch),
++        { batch: batchSize }
++      );
++      const batchData = await Promise.all(
++        batches.map((batch) =>
++          doQuery({ $in: batch }, { _id: 0, _key: 0 }, 0, stop + 1)
++        )
++      );
++      result = dbHelpers.mergeBatch(batchData, 0, stop, sort);
++      if (start > 0) {
++        result = result.slice(start, stop !== -1 ? stop + 1 : undefined);
++      }
++    } else {
++      result = await doQuery(query._key, fields, start, limit);
++    }
++
++    if (reverse) {
++      result.reverse();
++    }
++    if (!withScores) {
++      result = result.map((item) => item.value);
++    }
++
++    return result;
++  }
++
++  module.getSortedSetRangeByScore = async function (
++    key,
++    start,
++    count,
++    min,
++    max
++  ) {
++    return await getSortedSetRangeByScore(
++      key,
++      start,
++      count,
++      min,
++      max,
++      1,
++      false
++    );
++  };
++
++  module.getSortedSetRevRangeByScore = async function (
++    key,
++    start,
++    count,
++    max,
++    min
++  ) {
++    return await getSortedSetRangeByScore(
++      key,
++      start,
++      count,
++      min,
++      max,
++      -1,
++      false
++    );
++  };
++
++  module.getSortedSetRangeByScoreWithScores = async function (
++    key,
++    start,
++    count,
++    min,
++    max
++  ) {
++    return await getSortedSetRangeByScore(key, start, count, min, max, 1, true);
++  };
++
++  module.getSortedSetRevRangeByScoreWithScores = async function (
++    key,
++    start,
++    count,
++    max,
++    min
++  ) {
++    return await getSortedSetRangeByScore(
++      key,
++      start,
++      count,
++      min,
++      max,
++      -1,
++      true
++    );
++  };
++
++  async function getSortedSetRangeByScore(
++    key,
++    start,
++    count,
++    min,
++    max,
++    sort,
++    withScores
++  ) {
++    if (parseInt(count, 10) === 0) {
++      return [];
++    }
++    const stop = parseInt(count, 10) === -1 ? -1 : start + count - 1;
++    return await getSortedSetRange(
++      key,
++      start,
++      stop,
++      min,
++      max,
++      sort,
++      withScores
++    );
++  }
++
++  module.sortedSetCount = async function (key, min, max) {
++    if (!key) {
++      return;
++    }
++
++    const query = { _key: key };
++    if (min !== "-inf") {
++      query.score = { $gte: min };
++    }
++    if (max !== "+inf") {
++      query.score = query.score || {};
++      query.score.$lte = max;
++    }
++
++    const count = await module.client
++      .collection("objects")
++      .countDocuments(query);
++    return count || 0;
++  };
++
++  module.sortedSetCard = async function (key) {
++    if (!key) {
++      return 0;
++    }
++    const count = await module.client
++      .collection("objects")
++      .countDocuments({ _key: key });
++    return parseInt(count, 10) || 0;
++  };
++
++  module.sortedSetsCard = async function (keys) {
++    if (!Array.isArray(keys) || !keys.length) {
++      return [];
++    }
++    const promises = keys.map((k) => module.sortedSetCard(k));
++    return await Promise.all(promises);
++  };
++
++  module.sortedSetsCardSum = async function (keys) {
++    if (!keys || (Array.isArray(keys) && !keys.length)) {
++      return 0;
++    }
++
++    const count = await module.client
++      .collection("objects")
++      .countDocuments({ _key: Array.isArray(keys) ? { $in: keys } : keys });
++    return parseInt(count, 10) || 0;
++  };
++
++  module.sortedSetRank = async function (key, value) {
++    return await getSortedSetRank(false, key, value);
++  };
++
++  module.sortedSetRevRank = async function (key, value) {
++    return await getSortedSetRank(true, key, value);
++  };
++
++  async function getSortedSetRank(reverse, key, value) {
++    if (!key) {
++      return;
++    }
++    value = helpers.valueToString(value);
++    const score = await module.sortedSetScore(key, value);
++    if (score === null) {
++      return null;
++    }
++
++    return await module.client.collection("objects").countDocuments({
++      $or: [
++        {
++          _key: key,
++          score: reverse ? { $gt: score } : { $lt: score },
++        },
++        {
++          _key: key,
++          score: score,
++          value: reverse ? { $gt: value } : { $lt: value },
++        },
++      ],
++    });
++  }
++
++  module.sortedSetsRanks = async function (keys, values) {
++    return await sortedSetsRanks(module.sortedSetRank, keys, values);
++  };
++
++  module.sortedSetsRevRanks = async function (keys, values) {
++    return await sortedSetsRanks(module.sortedSetRevRank, keys, values);
++  };
++
++  async function sortedSetsRanks(method, keys, values) {
++    if (!Array.isArray(keys) || !keys.length) {
++      return [];
++    }
++    const data = new Array(values.length);
++    for (let i = 0; i < values.length; i += 1) {
++      data[i] = { key: keys[i], value: values[i] };
++    }
++    const promises = data.map((item) => method(item.key, item.value));
++    return await Promise.all(promises);
++  }
++
++  module.sortedSetRanks = async function (key, values) {
++    return await sortedSetRanks(false, key, values);
++  };
++
++  module.sortedSetRevRanks = async function (key, values) {
++    return await sortedSetRanks(true, key, values);
++  };
++
++  async function sortedSetRanks(reverse, key, values) {
++    if (values.length === 1) {
++      return [await getSortedSetRank(reverse, key, values[0])];
++    }
++    const sortedSet = await module[
++      reverse ? "getSortedSetRevRange" : "getSortedSetRange"
++    ](key, 0, -1);
++    return values.map((value) => {
++      if (!value) {
++        return null;
++      }
++      const index = sortedSet.indexOf(value.toString());
++      return index !== -1 ? index : null;
++    });
++  }
++
++  module.sortedSetScore = async function (key, value) {
++    if (!key) {
++      return null;
++    }
++    value = helpers.valueToString(value);
++    const result = await module.client
++      .collection("objects")
++      .findOne(
++        { _key: key, value: value },
++        { projection: { _id: 0, _key: 0, value: 0 } }
++      );
++    return result ? result.score : null;
++  };
++
++  module.sortedSetsScore = async function (keys, value) {
++    if (!Array.isArray(keys) || !keys.length) {
++      return [];
++    }
++    value = helpers.valueToString(value);
++    const result = await module.client
++      .collection("objects")
++      .find(
++        { _key: { $in: keys }, value: value },
++        { projection: { _id: 0, value: 0 } }
++      )
++      .toArray();
++    const map = {};
++    result.forEach((item) => {
++      if (item) {
++        map[item._key] = item;
++      }
++    });
++
++    return keys.map((key) => (map[key] ? map[key].score : null));
++  };
++
++  module.sortedSetScores = async function (key, values) {
++    if (!key) {
++      return null;
++    }
++    if (!values.length) {
++      return [];
++    }
++    values = values.map(helpers.valueToString);
++    const result = await module.client
++      .collection("objects")
++      .find(
++        { _key: key, value: { $in: values } },
++        { projection: { _id: 0, _key: 0 } }
++      )
++      .toArray();
++
++    const valueToScore = {};
++    result.forEach((item) => {
++      if (item) {
++        valueToScore[item.value] = item.score;
++      }
++    });
++
++    return values.map((v) =>
++      utils.isNumber(valueToScore[v]) ? valueToScore[v] : null
++    );
++  };
++
++  module.isSortedSetMember = async function (key, value) {
++    if (!key) {
++      return;
++    }
++    value = helpers.valueToString(value);
++    const result = await module.client.collection("objects").findOne(
++      {
++        _key: key,
++        value: value,
++      },
++      {
++        projection: { _id: 0, value: 1 },
++      }
++    );
++    return !!result;
++  };
++
++  module.isSortedSetMembers = async function (key, values) {
++    if (!key) {
++      return;
++    }
++    if (!values.length) {
++      return [];
++    }
++    values = values.map(helpers.valueToString);
++    const results = await module.client
++      .collection("objects")
++      .find(
++        {
++          _key: key,
++          value: { $in: values },
++        },
++        {
++          projection: { _id: 0, value: 1 },
++        }
++      )
++      .toArray();
++
++    const isMember = {};
++    results.forEach((item) => {
++      if (item) {
++        isMember[item.value] = true;
++      }
++    });
++
++    return values.map((value) => !!isMember[value]);
++  };
++
++  module.isMemberOfSortedSets = async function (keys, value) {
++    if (!Array.isArray(keys) || !keys.length) {
++      return [];
++    }
++    value = helpers.valueToString(value);
++    const results = await module.client
++      .collection("objects")
++      .find(
++        {
++          _key: { $in: keys },
++          value: value,
++        },
++        {
++          projection: { _id: 0, _key: 1, value: 1 },
++        }
++      )
++      .toArray();
++
++    const isMember = {};
++    results.forEach((item) => {
++      if (item) {
++        isMember[item._key] = true;
++      }
++    });
++
++    return keys.map((key) => !!isMember[key]);
++  };
++
++  module.getSortedSetMembers = async function (key) {
++    const data = await module.getSortedSetsMembers([key]);
++    return data && data[0];
++  };
++
++  module.getSortedSetsMembers = async function (keys) {
++    if (!Array.isArray(keys) || !keys.length) {
++      return [];
++    }
++    const arrayOfKeys = keys.length > 1;
++    const projection = { _id: 0, value: 1 };
++    if (arrayOfKeys) {
++      projection._key = 1;
++    }
++    const data = await module.client
++      .collection("objects")
++      .find(
++        {
++          _key: arrayOfKeys ? { $in: keys } : keys[0],
++        },
++        { projection: projection }
++      )
++      .toArray();
++
++    if (!arrayOfKeys) {
++      return [data.map((item) => item.value)];
++    }
++    const sets = {};
++    data.forEach((item) => {
++      sets[item._key] = sets[item._key] || [];
++      sets[item._key].push(item.value);
++    });
++
++    return keys.map((k) => sets[k] || []);
++  };
++
++  module.sortedSetIncrBy = async function (key, increment, value) {
++    if (!key) {
++      return;
++    }
++    const data = {};
++    value = helpers.valueToString(value);
++    data.score = parseFloat(increment);
++
++    try {
++      const result = await module.client.collection("objects").findOneAndUpdate(
++        {
++          _key: key,
++          value: value,
++        },
++        {
++          $inc: data,
++        },
++        {
++          returnDocument: "after",
++          upsert: true,
++        }
++      );
++      return result && result.value ? result.value.score : null;
++    } catch (err) {
++      // if there is duplicate key error retry the upsert
++      // https://github.com/NodeBB/NodeBB/issues/4467
++      // https://jira.mongodb.org/browse/SERVER-14322
++      // https://docs.mongodb.org/manual/reference/command/findAndModify/#upsert-and-unique-index
++      if (err && err.message.startsWith("E11000 duplicate key error")) {
++        return await module.sortedSetIncrBy(key, increment, value);
++      }
++      throw err;
++    }
++  };
++
++  module.sortedSetIncrByBulk = async function (data) {
++    const bulk = module.client
++      .collection("objects")
++      .initializeUnorderedBulkOp();
++    data.forEach((item) => {
++      bulk
++        .find({ _key: item[0], value: helpers.valueToString(item[2]) })
++        .upsert()
++        .update({ $inc: { score: parseFloat(item[1]) } });
++    });
++    await bulk.execute();
++    const result = await module.client
++      .collection("objects")
++      .find(
++        {
++          _key: { $in: _.uniq(data.map((i) => i[0])) },
++          value: { $in: _.uniq(data.map((i) => i[2])) },
++        },
++        {
++          projection: { _id: 0, _key: 1, value: 1, score: 1 },
++        }
++      )
++      .toArray();
++
++    const map = {};
++    result.forEach((item) => {
++      map[`${item._key}:${item.value}`] = item.score;
++    });
++    return data.map((item) => map[`${item[0]}:${item[2]}`]);
++  };
++
++  module.getSortedSetRangeByLex = async function (key, min, max, start, count) {
++    return await sortedSetLex(key, min, max, 1, start, count);
++  };
++
++  module.getSortedSetRevRangeByLex = async function (
++    key,
++    max,
++    min,
++    start,
++    count
++  ) {
++    return await sortedSetLex(key, min, max, -1, start, count);
++  };
++
++  module.sortedSetLexCount = async function (key, min, max) {
++    const data = await sortedSetLex(key, min, max, 1, 0, 0);
++    return data ? data.length : null;
++  };
++
++  async function sortedSetLex(key, min, max, sort, start, count) {
++    const query = { _key: key };
++    start = start !== undefined ? start : 0;
++    count = count !== undefined ? count : 0;
++    buildLexQuery(query, min, max);
++
++    const data = await module.client
++      .collection("objects")
++      .find(query, { projection: { _id: 0, value: 1 } })
++      .sort({ value: sort })
++      .skip(start)
++      .limit(count === -1 ? 0 : count)
++      .toArray();
++
++    return data.map((item) => item && item.value);
++  }
++
++  module.sortedSetRemoveRangeByLex = async function (key, min, max) {
++    const query = { _key: key };
++    buildLexQuery(query, min, max);
++
++    await module.client.collection("objects").deleteMany(query);
++  };
++
++  function buildLexQuery(query, min, max) {
++    if (min !== "-") {
++      if (min.match(/^\(/)) {
++        query.value = { $gt: min.slice(1) };
++      } else if (min.match(/^\[/)) {
++        query.value = { $gte: min.slice(1) };
++      } else {
++        query.value = { $gte: min };
++      }
++    }
++    if (max !== "+") {
++      query.value = query.value || {};
++      if (max.match(/^\(/)) {
++        query.value.$lt = max.slice(1);
++      } else if (max.match(/^\[/)) {
++        query.value.$lte = max.slice(1);
++      } else {
++        query.value.$lte = max;
++      }
++    }
++  }
++
++  module.getSortedSetScan = async function (params) {
++    const project = { _id: 0, value: 1 };
++    if (params.withScores) {
++      project.score = 1;
++    }
++
++    const match = helpers.buildMatchQuery(params.match);
++    let regex;
++    try {
++      regex = new RegExp(match);
++    } catch (err) {
++      return [];
++    }
++
++    const cursor = module.client.collection("objects").find(
++      {
++        _key: params.key,
++        value: { $regex: regex },
++      },
++      { projection: project }
++    );
++
++    if (params.limit) {
++      cursor.limit(params.limit);
++    }
++
++    const data = await cursor.toArray();
++    if (!params.withScores) {
++      return data.map((d) => d.value);
++    }
++    return data;
++  };
++
++  module.processSortedSet = async function (setKey, processFn, options) {
++    let done = false;
++    const ids = [];
++    const project = { _id: 0, _key: 0 };
++
++    if (!options.withScores) {
++      project.score = 0;
++    }
++    const cursor = await module.client
++      .collection("objects")
++      .find({ _key: setKey }, { projection: project })
++      .sort({ score: 1 })
++      .batchSize(options.batch);
++
++    if (
++      processFn &&
++      processFn.constructor &&
++      processFn.constructor.name !== "AsyncFunction"
++    ) {
++      processFn = util.promisify(processFn);
++    }
++
++    while (!done) {
++      /* eslint-disable no-await-in-loop */
++      const item = await cursor.next();
++      if (item === null) {
++        done = true;
++      } else {
++        ids.push(options.withScores ? item : item.value);
++      }
++
++      if (ids.length >= options.batch || (done && ids.length !== 0)) {
++        await processFn(ids);
++
++        ids.length = 0;
++        if (options.interval) {
++          await sleep(options.interval);
++        }
++      }
++    }
++  };
++};
+diff --git a/components/com.database/mongo/transaction.js b/components/com.database/mongo/transaction.js
+new file mode 100644
+index 0000000..6c4b540
+--- /dev/null
++++ b/components/com.database/mongo/transaction.js
+@@ -0,0 +1,8 @@
++"use strict";
++
++module.exports = function (module) {
++  // TODO
++  module.transaction = function (perform, callback) {
++    perform(module.client, callback);
++  };
++};
+diff --git a/components/com.database/src/cache.js b/components/com.database/src/cache.js
+new file mode 100644
+index 0000000..ed41c1c
+--- /dev/null
++++ b/components/com.database/src/cache.js
+@@ -0,0 +1,10 @@
++"use strict";
++
++module.exports.create = function (name) {
++  const cacheCreate = require("../cache/lru");
++  return cacheCreate({
++    name: `${name}-object`,
++    max: 40000,
++    ttl: 0,
++  });
++};
+diff --git a/components/com.database/src/helpers.js b/components/com.database/src/helpers.js
+new file mode 100644
+index 0000000..1f39559
+--- /dev/null
++++ b/components/com.database/src/helpers.js
+@@ -0,0 +1,29 @@
++"use strict";
++
++const helpers = module.exports;
++
++helpers.mergeBatch = function (batchData, start, stop, sort) {
++  function getFirst() {
++    let selectedArray = batchData[0];
++    for (let i = 1; i < batchData.length; i++) {
++      if (
++        batchData[i].length &&
++        (!selectedArray.length ||
++          (sort === 1 && batchData[i][0].score < selectedArray[0].score) ||
++          (sort === -1 && batchData[i][0].score > selectedArray[0].score))
++      ) {
++        selectedArray = batchData[i];
++      }
++    }
++    return selectedArray.length ? selectedArray.shift() : null;
++  }
++  let item = null;
++  const result = [];
++  do {
++    item = getFirst(batchData);
++    if (item) {
++      result.push(item);
++    }
++  } while (item && (result.length < stop - start + 1 || stop === -1));
++  return result;
++};
+diff --git a/components/com.database/src/index.js b/components/com.database/src/index.js
+new file mode 100644
+index 0000000..301286b
+--- /dev/null
++++ b/components/com.database/src/index.js
+@@ -0,0 +1,50 @@
++/**
++ * @author @wojtekxtx
++ * @access public
++ * @description Index for com.database
++ * @version .1
++ */
++"use strict";
++
++const nconf = require("nconf");
++
++const databaseName = nconf.get("database");
++const winston = require("winston");
++
++if (!databaseName) {
++  winston.error(new Error("Database type not set! Run ./nodebb setup"));
++  process.exit();
++}
++
++const primaryDB = require(`./${databaseName}`);
++
++primaryDB.parseIntFields = function (data, intFields, requestedFields) {
++  intFields.forEach((field) => {
++    if (
++      !requestedFields ||
++      !requestedFields.length ||
++      requestedFields.includes(field)
++    ) {
++      data[field] = parseInt(data[field], 10) || 0;
++    }
++  });
++};
++
++primaryDB.initSessionStore = async function () {
++  const sessionStoreConfig =
++    nconf.get("session_store") || nconf.get("redis") || nconf.get(databaseName);
++  let sessionStoreDB = primaryDB;
++
++  if (nconf.get("session_store")) {
++    sessionStoreDB = require(`./${sessionStoreConfig.name}`);
++  } else if (nconf.get("redis")) {
++    // if redis is specified, use it as session store over others
++    sessionStoreDB = require("./redis");
++  }
++
++  primaryDB.sessionStore = await sessionStoreDB.createSessionStore(
++    sessionStoreConfig
++  );
++};
++
++module.exports = primaryDB;
+\ No newline at end of file
+diff --git a/components/com.database/src/mongo.js b/components/com.database/src/mongo.js
+new file mode 100644
+index 0000000..d1e49bb
+--- /dev/null
++++ b/components/com.database/src/mongo.js
+@@ -0,0 +1,207 @@
++"use strict";
++
++const winston = require("winston");
++const nconf = require("nconf");
++const semver = require("semver");
++const prompt = require("prompt");
++const utils = require("../utils");
++
++let client;
++
++const connection = require("./mongo/connection");
++
++const mongoModule = module.exports;
++
++function isUriNotSpecified() {
++  return !prompt.history("mongo:uri").value;
++}
++
++mongoModule.questions = [
++  {
++    name: "mongo:uri",
++    description:
++      "MongoDB connection URI: (leave blank if you wish to specify host, port, username/password and database individually)\nFormat: mongodb://[username:password@]host1[:port1][,host2[:port2],...[,hostN[:portN]]][/[database][?options]]",
++    default: nconf.get("mongo:uri") || "",
++    hideOnWebInstall: true,
++  },
++  {
++    name: "mongo:host",
++    description: "Host IP or address of your MongoDB instance",
++    default: nconf.get("mongo:host") || "127.0.0.1",
++    ask: isUriNotSpecified,
++  },
++  {
++    name: "mongo:port",
++    description: "Host port of your MongoDB instance",
++    default: nconf.get("mongo:port") || 27017,
++    ask: isUriNotSpecified,
++  },
++  {
++    name: "mongo:username",
++    description: "MongoDB username",
++    default: nconf.get("mongo:username") || "",
++    ask: isUriNotSpecified,
++  },
++  {
++    name: "mongo:password",
++    description: "Password of your MongoDB database",
++    default: nconf.get("mongo:password") || "",
++    hidden: true,
++    ask: isUriNotSpecified,
++    before: function (value) {
++      value = value || nconf.get("mongo:password") || "";
++      return value;
++    },
++  },
++  {
++    name: "mongo:database",
++    description: "MongoDB database name",
++    default: nconf.get("mongo:database") || "nodebb",
++    ask: isUriNotSpecified,
++  },
++];
++
++mongoModule.init = async function () {
++  client = await connection.connect(nconf.get("mongo"));
++  mongoModule.client = client.db();
++};
++
++mongoModule.createSessionStore = async function (options) {
++  const MongoStore = require("connect-mongo");
++  const meta = require("../meta");
++
++  const store = MongoStore.create({
++    clientPromise: connection.connect(options),
++    ttl: meta.getSessionTTLSeconds(),
++  });
++
++  return store;
++};
++
++mongoModule.createIndices = async function () {
++  if (!mongoModule.client) {
++    winston.warn("[database/createIndices] database not initialized");
++    return;
++  }
++
++  winston.info("[database] Checking database indices.");
++  const collection = mongoModule.client.collection("objects");
++  await collection.createIndex({ _key: 1, score: -1 }, { background: true });
++  await collection.createIndex(
++    { _key: 1, value: -1 },
++    { background: true, unique: true, sparse: true }
++  );
++  await collection.createIndex(
++    { expireAt: 1 },
++    { expireAfterSeconds: 0, background: true }
++  );
++  winston.info("[database] Checking database indices done!");
++};
++
++mongoModule.checkCompatibility = function (callback) {
++  const mongoPkg = require("mongodb/package.json");
++  mongoModule.checkCompatibilityVersion(mongoPkg.version, callback);
++};
++
++mongoModule.checkCompatibilityVersion = function (version, callback) {
++  if (semver.lt(version, "2.0.0")) {
++    return callback(
++      new Error(
++        "The `mongodb` package is out-of-date, please run `./nodebb setup` again."
++      )
++    );
++  }
++
++  callback();
++};
++
++mongoModule.info = async function (db) {
++  if (!db) {
++    const client = await connection.connect(nconf.get("mongo"));
++    db = client.db();
++  }
++  mongoModule.client = mongoModule.client || db;
++  let serverStatusError = "";
++
++  async function getServerStatus() {
++    try {
++      return await db.command({ serverStatus: 1 });
++    } catch (err) {
++      serverStatusError = err.message;
++      // Override mongo error with more human-readable error
++      if (err.name === "MongoError" && err.codeName === "Unauthorized") {
++        serverStatusError = "[[admin/advanced/database:mongo.unauthorized]]";
++      }
++      winston.error(err.stack);
++    }
++  }
++
++  let [serverStatus, stats, listCollections] = await Promise.all([
++    getServerStatus(),
++    db.command({ dbStats: 1 }),
++    getCollectionStats(db),
++  ]);
++  stats = stats || {};
++  serverStatus = serverStatus || {};
++  stats.serverStatusError = serverStatusError;
++  const scale = 1024 * 1024 * 1024;
++
++  listCollections = listCollections.map((collectionInfo) => ({
++    name: collectionInfo.ns,
++    count: collectionInfo.count,
++    size: collectionInfo.size,
++    avgObjSize: collectionInfo.avgObjSize,
++    storageSize: collectionInfo.storageSize,
++    totalIndexSize: collectionInfo.totalIndexSize,
++    indexSizes: collectionInfo.indexSizes,
++  }));
++
++  stats.mem = serverStatus.mem || { resident: 0, virtual: 0, mapped: 0 };
++  stats.mem.resident = (stats.mem.resident / 1024).toFixed(3);
++  stats.mem.virtual = (stats.mem.virtual / 1024).toFixed(3);
++  stats.mem.mapped = (stats.mem.mapped / 1024).toFixed(3);
++  stats.collectionData = listCollections;
++  stats.network = serverStatus.network || {
++    bytesIn: 0,
++    bytesOut: 0,
++    numRequests: 0,
++  };
++  stats.network.bytesIn = (stats.network.bytesIn / scale).toFixed(3);
++  stats.network.bytesOut = (stats.network.bytesOut / scale).toFixed(3);
++  stats.network.numRequests = utils.addCommas(stats.network.numRequests);
++  stats.raw = JSON.stringify(stats, null, 4);
++
++  stats.avgObjSize = stats.avgObjSize.toFixed(2);
++  stats.dataSize = (stats.dataSize / scale).toFixed(3);
++  stats.storageSize = (stats.storageSize / scale).toFixed(3);
++  stats.fileSize = stats.fileSize ? (stats.fileSize / scale).toFixed(3) : 0;
++  stats.indexSize = (stats.indexSize / scale).toFixed(3);
++  stats.storageEngine = serverStatus.storageEngine
++    ? serverStatus.storageEngine.name
++    : "mmapv1";
++  stats.host = serverStatus.host;
++  stats.version = serverStatus.version;
++  stats.uptime = serverStatus.uptime;
++  stats.mongo = true;
++  return stats;
++};
++
++async function getCollectionStats(db) {
++  const items = await db.listCollections().toArray();
++  return await Promise.all(
++    items.map((collection) => db.collection(collection.name).stats())
++  );
++}
++
++mongoModule.close = function (callback) {
++  callback = callback || function () {};
++  client.close((err) => callback(err));
++};
++
++require("./mongo/main")(mongoModule);
++require("./mongo/hash")(mongoModule);
++require("./mongo/sets")(mongoModule);
++require("./mongo/sorted")(mongoModule);
++require("./mongo/list")(mongoModule);
++require("./mongo/transaction")(mongoModule);
++//require("../promisify")(mongoModule, ["client", "sessionStore"]);
+diff --git a/components/com.database/mongo/connection.js b/components/com.database/src/mongo/connection.js
+similarity index 100%
+rename from components/com.database/mongo/connection.js
+rename to components/com.database/src/mongo/connection.js
+diff --git a/components/com.database/mongo/hash.js b/components/com.database/src/mongo/hash.js
+similarity index 100%
+rename from components/com.database/mongo/hash.js
+rename to components/com.database/src/mongo/hash.js
+diff --git a/components/com.database/src/mongo/connection.js b/components/com.database/src/mongo/connection.js
+index 24b0c9c..c077085 100644
+--- a/components/com.database/src/mongo/connection.js
++++ b/components/com.database/src/mongo/connection.js
+@@ -3,6 +3,8 @@
+ const nconf = require("nconf");
+ const winston = require("winston");
+ const _ = require("lodash");
++const { noDbCredentials } = require("../../../com.errors/errors/errorHandler");
++const { dbHost, dbPort, noDefaultDbName } = require("../../../../config/dev-env");
+ 
+ const connection = module.exports;
+ 
+@@ -18,19 +20,19 @@ connection.getConnectionString = function (mongo) {
+     !uri.includes("@") ||
+     !uri.slice(uri.indexOf("://") + 3, uri.indexOf("@"))
+   ) {
+-    winston.warn("You have no mongo username/password setup!");
++    winston.warn(noDbCredentials);
+   }
+ 
+   // Sensible defaults for Mongo, if not set
+   if (!mongo.host) {
+-    mongo.host = "127.0.0.1";
++    mongo.host = dbHost;
+   }
+   if (!mongo.port) {
+-    mongo.port = 27017;
++    mongo.port = dbPort;
+   }
+   const dbName = mongo.database;
+   if (dbName === undefined || dbName === "") {
+-    winston.warn('You have no database name, using "nodebb"');
++    winston.warn(noDefaultDbName);
+     mongo.database = "nodebb";
+   }
+ 
+diff --git a/components/com.database/src/mongo/hash.js b/components/com.database/src/mongo/hash.js
+new file mode 100644
+index 0000000..150af4a
+--- /dev/null
++++ b/components/com.database/src/mongo/hash.js
+@@ -0,0 +1,323 @@
++"use strict";
++
++module.exports = function (module) {
++  const helpers = require("./helpers");
++
++  const cache = require("../cache").create("mongo");
++
++  module.objectCache = cache;
++
++  module.setObject = async function (key, data) {
++    const isArray = Array.isArray(key);
++    if (!key || !data || (isArray && !key.length)) {
++      return;
++    }
++
++    const writeData = helpers.serializeData(data);
++    if (!Object.keys(writeData).length) {
++      return;
++    }
++    try {
++      if (isArray) {
++        const bulk = module.client
++          .collection("objects")
++          .initializeUnorderedBulkOp();
++        key.forEach((key) =>
++          bulk.find({ _key: key }).upsert().updateOne({ $set: writeData })
++        );
++        await bulk.execute();
++      } else {
++        await module.client
++          .collection("objects")
++          .updateOne({ _key: key }, { $set: writeData }, { upsert: true });
++      }
++    } catch (err) {
++      if (err && err.message.startsWith("E11000 duplicate key error")) {
++        return await module.setObject(key, data);
++      }
++      throw err;
++    }
++
++    cache.del(key);
++  };
++
++  module.setObjectBulk = async function (...args) {
++    let data = args[0];
++    if (!Array.isArray(data) || !data.length) {
++      return;
++    }
++    if (Array.isArray(args[1])) {
++      console.warn(
++        "[deprecated] db.setObjectBulk(keys, data) usage is deprecated, please use db.setObjectBulk(data)"
++      );
++      // conver old format to new format for backwards compatibility
++      data = args[0].map((key, i) => [key, args[1][i]]);
++    }
++
++    try {
++      let bulk;
++      data.forEach((item) => {
++        const writeData = helpers.serializeData(item[1]);
++        if (Object.keys(writeData).length) {
++          if (!bulk) {
++            bulk = module.client
++              .collection("objects")
++              .initializeUnorderedBulkOp();
++          }
++          bulk.find({ _key: item[0] }).upsert().updateOne({ $set: writeData });
++        }
++      });
++      if (bulk) {
++        await bulk.execute();
++      }
++    } catch (err) {
++      if (err && err.message.startsWith("E11000 duplicate key error")) {
++        return await module.setObjectBulk(data);
++      }
++      throw err;
++    }
++
++    cache.del(data.map((item) => item[0]));
++  };
++
++  module.setObjectField = async function (key, field, value) {
++    if (!field) {
++      return;
++    }
++    const data = {};
++    data[field] = value;
++    await module.setObject(key, data);
++  };
++
++  module.getObject = async function (key, fields = []) {
++    if (!key) {
++      return null;
++    }
++
++    const data = await module.getObjects([key], fields);
++    return data && data.length ? data[0] : null;
++  };
++
++  module.getObjects = async function (keys, fields = []) {
++    return await module.getObjectsFields(keys, fields);
++  };
++
++  module.getObjectField = async function (key, field) {
++    if (!key) {
++      return null;
++    }
++    const cachedData = {};
++    cache.getUnCachedKeys([key], cachedData);
++    if (cachedData[key]) {
++      return cachedData[key].hasOwnProperty(field)
++        ? cachedData[key][field]
++        : null;
++    }
++    field = helpers.fieldToString(field);
++    const item = await module.client
++      .collection("objects")
++      .findOne({ _key: key }, { projection: { _id: 0, [field]: 1 } });
++    if (!item) {
++      return null;
++    }
++    return item.hasOwnProperty(field) ? item[field] : null;
++  };
++
++  module.getObjectFields = async function (key, fields) {
++    if (!key) {
++      return null;
++    }
++    const data = await module.getObjectsFields([key], fields);
++    return data ? data[0] : null;
++  };
++
++  module.getObjectsFields = async function (keys, fields) {
++    if (!Array.isArray(keys) || !keys.length) {
++      return [];
++    }
++    const cachedData = {};
++    const unCachedKeys = cache.getUnCachedKeys(keys, cachedData);
++    let data = [];
++    if (unCachedKeys.length >= 1) {
++      data = await module.client
++        .collection("objects")
++        .find(
++          {
++            _key:
++              unCachedKeys.length === 1
++                ? unCachedKeys[0]
++                : { $in: unCachedKeys },
++          },
++          { projection: { _id: 0 } }
++        )
++        .toArray();
++      data = data.map(helpers.deserializeData);
++    }
++
++    const map = helpers.toMap(data);
++    unCachedKeys.forEach((key) => {
++      cachedData[key] = map[key] || null;
++      cache.set(key, cachedData[key]);
++    });
++
++    if (!Array.isArray(fields) || !fields.length) {
++      return keys.map((key) =>
++        cachedData[key] ? { ...cachedData[key] } : null
++      );
++    }
++    return keys.map((key) => {
++      const item = cachedData[key] || {};
++      const result = {};
++      fields.forEach((field) => {
++        result[field] = item[field] !== undefined ? item[field] : null;
++      });
++      return result;
++    });
++  };
++
++  module.getObjectKeys = async function (key) {
++    const data = await module.getObject(key);
++    return data ? Object.keys(data) : [];
++  };
++
++  module.getObjectValues = async function (key) {
++    const data = await module.getObject(key);
++    return data ? Object.values(data) : [];
++  };
++
++  module.isObjectField = async function (key, field) {
++    const data = await module.isObjectFields(key, [field]);
++    return Array.isArray(data) && data.length ? data[0] : false;
++  };
++
++  module.isObjectFields = async function (key, fields) {
++    if (!key) {
++      return;
++    }
++
++    const data = {};
++    fields.forEach((field) => {
++      field = helpers.fieldToString(field);
++      if (field) {
++        data[field] = 1;
++      }
++    });
++
++    const item = await module.client
++      .collection("objects")
++      .findOne({ _key: key }, { projection: data });
++    const results = fields.map(
++      (f) => !!item && item[f] !== undefined && item[f] !== null
++    );
++    return results;
++  };
++
++  module.deleteObjectField = async function (key, field) {
++    await module.deleteObjectFields(key, [field]);
++  };
++
++  module.deleteObjectFields = async function (key, fields) {
++    if (
++      !key ||
++      (Array.isArray(key) && !key.length) ||
++      !Array.isArray(fields) ||
++      !fields.length
++    ) {
++      return;
++    }
++    fields = fields.filter(Boolean);
++    if (!fields.length) {
++      return;
++    }
++
++    const data = {};
++    fields.forEach((field) => {
++      field = helpers.fieldToString(field);
++      data[field] = "";
++    });
++    if (Array.isArray(key)) {
++      await module.client
++        .collection("objects")
++        .updateMany({ _key: { $in: key } }, { $unset: data });
++    } else {
++      await module.client
++        .collection("objects")
++        .updateOne({ _key: key }, { $unset: data });
++    }
++
++    cache.del(key);
++  };
++
++  module.incrObjectField = async function (key, field) {
++    return await module.incrObjectFieldBy(key, field, 1);
++  };
++
++  module.decrObjectField = async function (key, field) {
++    return await module.incrObjectFieldBy(key, field, -1);
++  };
++
++  module.incrObjectFieldBy = async function (key, field, value) {
++    value = parseInt(value, 10);
++    if (!key || isNaN(value)) {
++      return null;
++    }
++
++    const increment = {};
++    field = helpers.fieldToString(field);
++    increment[field] = value;
++
++    if (Array.isArray(key)) {
++      const bulk = module.client
++        .collection("objects")
++        .initializeUnorderedBulkOp();
++      key.forEach((key) => {
++        bulk.find({ _key: key }).upsert().update({ $inc: increment });
++      });
++      await bulk.execute();
++      cache.del(key);
++      const result = await module.getObjectsFields(key, [field]);
++      return result.map((data) => data && data[field]);
++    }
++    try {
++      const result = await module.client.collection("objects").findOneAndUpdate(
++        {
++          _key: key,
++        },
++        {
++          $inc: increment,
++        },
++        {
++          returnDocument: "after",
++          upsert: true,
++        }
++      );
++      cache.del(key);
++      return result && result.value ? result.value[field] : null;
++    } catch (err) {
++      if (err && err.message.startsWith("E11000 duplicate key error")) {
++        return await module.incrObjectFieldBy(key, field, value);
++      }
++      throw err;
++    }
++  };
++
++  module.incrObjectFieldByBulk = async function (data) {
++    if (!Array.isArray(data) || !data.length) {
++      return;
++    }
++
++    const bulk = module.client
++      .collection("objects")
++      .initializeUnorderedBulkOp();
++
++    data.forEach((item) => {
++      const increment = {};
++      for (const [field, value] of Object.entries(item[1])) {
++        increment[helpers.fieldToString(field)] = value;
++      }
++      bulk.find({ _key: item[0] }).upsert().update({ $inc: increment });
++    });
++    await bulk.execute();
++    cache.del(data.map((item) => item[0]));
++  };
++};
+diff --git a/components/com.database/src/mongo/helpers.js b/components/com.database/src/mongo/helpers.js
+new file mode 100644
+index 0000000..96f2231
+--- /dev/null
++++ b/components/com.database/src/mongo/helpers.js
+@@ -0,0 +1,67 @@
++"use strict";
++
++const helpers = module.exports;
++//const utils = require("../../utils");
++
++helpers.noop = function () {};
++
++helpers.toMap = function (data) {
++  const map = {};
++  for (let i = 0; i < data.length; i += 1) {
++    map[data[i]._key] = data[i];
++    delete data[i]._key;
++  }
++  return map;
++};
++
++helpers.fieldToString = function (field) {
++  if (field === null || field === undefined) {
++    return field;
++  }
++
++  if (typeof field !== "string") {
++    field = field.toString();
++  }
++  // if there is a '.' in the field name it inserts subdocument in mongo, replace '.'s with \uff0E
++  return field.replace(/\./g, "\uff0E");
++};
++
++helpers.serializeData = function (data) {
++  const serialized = {};
++  for (const [field, value] of Object.entries(data)) {
++    if (field !== "") {
++      serialized[helpers.fieldToString(field)] = value;
++    }
++  }
++  return serialized;
++};
++
++helpers.deserializeData = function (data) {
++  const deserialized = {};
++  for (const [field, value] of Object.entries(data)) {
++    deserialized[field.replace(/\uff0E/g, ".")] = value;
++  }
++  return deserialized;
++};
++
++helpers.valueToString = function (value) {
++  return String(value);
++};
++
++helpers.buildMatchQuery = function (match) {
++  let _match = match;
++  if (match.startsWith("*")) {
++    _match = _match.substring(1);
++  }
++  if (match.endsWith("*")) {
++    _match = _match.substring(0, _match.length - 1);
++  }
++  _match = utils.escapeRegexChars(_match);
++  if (!match.startsWith("*")) {
++    _match = `^${_match}`;
++  }
++  if (!match.endsWith("*")) {
++    _match += "$";
++  }
++  return _match;
++};
+diff --git a/components/com.database/mongo/list.js b/components/com.database/src/mongo/list.js
+similarity index 100%
+rename from components/com.database/mongo/list.js
+rename to components/com.database/src/mongo/list.js
+diff --git a/components/com.database/mongo/main.js b/components/com.database/src/mongo/main.js
+similarity index 100%
+rename from components/com.database/mongo/main.js
+rename to components/com.database/src/mongo/main.js
+diff --git a/components/com.database/mongo/sets.js b/components/com.database/src/mongo/sets.js
+similarity index 100%
+rename from components/com.database/mongo/sets.js
+rename to components/com.database/src/mongo/sets.js
+diff --git a/components/com.database/mongo/sorted.js b/components/com.database/src/mongo/sorted.js
+similarity index 100%
+rename from components/com.database/mongo/sorted.js
+rename to components/com.database/src/mongo/sorted.js
+diff --git a/components/com.database/mongo/transaction.js b/components/com.database/src/mongo/transaction.js
+similarity index 100%
+rename from components/com.database/mongo/transaction.js
+rename to components/com.database/src/mongo/transaction.js
+diff --git a/components/com.database/src/mongo/list.js b/components/com.database/src/mongo/list.js
+new file mode 100644
+index 0000000..3b37ad8
+--- /dev/null
++++ b/components/com.database/src/mongo/list.js
+@@ -0,0 +1,115 @@
++"use strict";
++
++module.exports = function (module) {
++  const helpers = require("./helpers");
++
++  module.listPrepend = async function (key, value) {
++    if (!key) {
++      return;
++    }
++    value = Array.isArray(value) ? value : [value];
++    value.reverse();
++    const exists = await module.isObjectField(key, "array");
++    if (exists) {
++      await listPush(key, value, { $position: 0 });
++    } else {
++      await module.listAppend(key, value);
++    }
++  };
++
++  module.listAppend = async function (key, value) {
++    if (!key) {
++      return;
++    }
++    value = Array.isArray(value) ? value : [value];
++    await listPush(key, value);
++  };
++
++  async function listPush(key, values, position) {
++    values = values.map(helpers.valueToString);
++    await module.client.collection("objects").updateOne(
++      {
++        _key: key,
++      },
++      {
++        $push: {
++          array: {
++            $each: values,
++            ...(position || {}),
++          },
++        },
++      },
++      {
++        upsert: true,
++      }
++    );
++  }
++
++  module.listRemoveLast = async function (key) {
++    if (!key) {
++      return;
++    }
++    const value = await module.getListRange(key, -1, -1);
++    module.client
++      .collection("objects")
++      .updateOne({ _key: key }, { $pop: { array: 1 } });
++    return value && value.length ? value[0] : null;
++  };
++
++  module.listRemoveAll = async function (key, value) {
++    if (!key) {
++      return;
++    }
++    const isArray = Array.isArray(value);
++    if (isArray) {
++      value = value.map(helpers.valueToString);
++    } else {
++      value = helpers.valueToString(value);
++    }
++
++    await module.client.collection("objects").updateOne(
++      {
++        _key: key,
++      },
++      {
++        $pull: { array: isArray ? { $in: value } : value },
++      }
++    );
++  };
++
++  module.listTrim = async function (key, start, stop) {
++    if (!key) {
++      return;
++    }
++    const value = await module.getListRange(key, start, stop);
++    await module.client
++      .collection("objects")
++      .updateOne({ _key: key }, { $set: { array: value } });
++  };
++
++  module.getListRange = async function (key, start, stop) {
++    if (!key) {
++      return;
++    }
++
++    const data = await module.client
++      .collection("objects")
++      .findOne({ _key: key }, { array: 1 });
++    if (!(data && data.array)) {
++      return [];
++    }
++
++    return data.array.slice(start, stop !== -1 ? stop + 1 : undefined);
++  };
++
++  module.listLength = async function (key) {
++    const result = await module.client
++      .collection("objects")
++      .aggregate([
++        { $match: { _key: key } },
++        { $project: { count: { $size: "$array" } } },
++      ])
++      .toArray();
++    return Array.isArray(result) && result.length && result[0].count;
++  };
++};
+diff --git a/components/com.database/src/mongo/main.js b/components/com.database/src/mongo/main.js
+index da95f3f..c33b484 100644
+--- a/components/com.database/src/mongo/main.js
++++ b/components/com.database/src/mongo/main.js
+@@ -1,6 +1,6 @@
+ "use strict";
+ 
+-module.exports = function (module) {
++export default function (module) {
+   const helpers = require("./helpers");
+   module.flushdb = async function () {
+     await module.client.dropDatabase();
+diff --git a/components/com.database/src/mongo/sets.js b/components/com.database/src/mongo/sets.js
+new file mode 100644
+index 0000000..33b0534
+--- /dev/null
++++ b/components/com.database/src/mongo/sets.js
+@@ -0,0 +1,247 @@
++"use strict";
++
++module.exports = function (module) {
++  const _ = require("lodash");
++  const helpers = require("./helpers");
++
++  module.setAdd = async function (key, value) {
++    if (!Array.isArray(value)) {
++      value = [value];
++    }
++    if (!value.length) {
++      return;
++    }
++    value = value.map((v) => helpers.valueToString(v));
++
++    await module.client.collection("objects").updateOne(
++      {
++        _key: key,
++      },
++      {
++        $addToSet: {
++          members: {
++            $each: value,
++          },
++        },
++      },
++      {
++        upsert: true,
++      }
++    );
++  };
++
++  module.setsAdd = async function (keys, value) {
++    if (!Array.isArray(keys) || !keys.length) {
++      return;
++    }
++
++    if (!Array.isArray(value)) {
++      value = [value];
++    }
++
++    value = value.map((v) => helpers.valueToString(v));
++
++    const bulk = module.client
++      .collection("objects")
++      .initializeUnorderedBulkOp();
++
++    for (let i = 0; i < keys.length; i += 1) {
++      bulk
++        .find({ _key: keys[i] })
++        .upsert()
++        .updateOne({
++          $addToSet: {
++            members: {
++              $each: value,
++            },
++          },
++        });
++    }
++    try {
++      await bulk.execute();
++    } catch (err) {
++      if (err && err.message.startsWith("E11000 duplicate key error")) {
++        return await module.setsAdd(keys, value);
++      }
++      throw err;
++    }
++  };
++
++  module.setRemove = async function (key, value) {
++    if (!Array.isArray(value)) {
++      value = [value];
++    }
++
++    value = value.map((v) => helpers.valueToString(v));
++
++    await module.client.collection("objects").updateMany(
++      {
++        _key: Array.isArray(key) ? { $in: key } : key,
++      },
++      {
++        $pullAll: { members: value },
++      }
++    );
++  };
++
++  module.setsRemove = async function (keys, value) {
++    if (!Array.isArray(keys) || !keys.length) {
++      return;
++    }
++    value = helpers.valueToString(value);
++
++    await module.client.collection("objects").updateMany(
++      {
++        _key: { $in: keys },
++      },
++      {
++        $pull: { members: value },
++      }
++    );
++  };
++
++  module.isSetMember = async function (key, value) {
++    if (!key) {
++      return false;
++    }
++    value = helpers.valueToString(value);
++
++    const item = await module.client.collection("objects").findOne(
++      {
++        _key: key,
++        members: value,
++      },
++      {
++        projection: { _id: 0, members: 0 },
++      }
++    );
++    return item !== null && item !== undefined;
++  };
++
++  module.isSetMembers = async function (key, values) {
++    if (!key || !Array.isArray(values) || !values.length) {
++      return [];
++    }
++    values = values.map((v) => helpers.valueToString(v));
++
++    const result = await module.client.collection("objects").findOne(
++      {
++        _key: key,
++      },
++      {
++        projection: { _id: 0, _key: 0 },
++      }
++    );
++    const membersSet = new Set(
++      result && Array.isArray(result.members) ? result.members : []
++    );
++    return values.map((v) => membersSet.has(v));
++  };
++
++  module.isMemberOfSets = async function (sets, value) {
++    if (!Array.isArray(sets) || !sets.length) {
++      return [];
++    }
++    value = helpers.valueToString(value);
++
++    const result = await module.client
++      .collection("objects")
++      .find(
++        {
++          _key: { $in: sets },
++          members: value,
++        },
++        {
++          projection: { _id: 0, members: 0 },
++        }
++      )
++      .toArray();
++
++    const map = {};
++    result.forEach((item) => {
++      map[item._key] = true;
++    });
++
++    return sets.map((set) => !!map[set]);
++  };
++
++  module.getSetMembers = async function (key) {
++    if (!key) {
++      return [];
++    }
++
++    const data = await module.client.collection("objects").findOne(
++      {
++        _key: key,
++      },
++      {
++        projection: { _id: 0, _key: 0 },
++      }
++    );
++    return data ? data.members : [];
++  };
++
++  module.getSetsMembers = async function (keys) {
++    if (!Array.isArray(keys) || !keys.length) {
++      return [];
++    }
++    const data = await module.client
++      .collection("objects")
++      .find(
++        {
++          _key: { $in: keys },
++        },
++        {
++          projection: { _id: 0 },
++        }
++      )
++      .toArray();
++
++    const sets = {};
++    data.forEach((set) => {
++      sets[set._key] = set.members || [];
++    });
++
++    return keys.map((k) => sets[k] || []);
++  };
++
++  module.setCount = async function (key) {
++    if (!key) {
++      return 0;
++    }
++    const data = await module.client
++      .collection("objects")
++      .aggregate([
++        { $match: { _key: key } },
++        { $project: { _id: 0, count: { $size: "$members" } } },
++      ])
++      .toArray();
++    return Array.isArray(data) && data.length ? data[0].count : 0;
++  };
++
++  module.setsCount = async function (keys) {
++    const data = await module.client
++      .collection("objects")
++      .aggregate([
++        { $match: { _key: { $in: keys } } },
++        { $project: { _id: 0, _key: 1, count: { $size: "$members" } } },
++      ])
++      .toArray();
++    const map = _.keyBy(data, "_key");
++    return keys.map((key) => (map.hasOwnProperty(key) ? map[key].count : 0));
++  };
++
++  module.setRemoveRandom = async function (key) {
++    const data = await module.client
++      .collection("objects")
++      .findOne({ _key: key });
++    if (!data) {
++      return;
++    }
++
++    const randomIndex = Math.floor(Math.random() * data.members.length);
++    const value = data.members[randomIndex];
++    await module.setRemove(data._key, value);
++    return value;
++  };
++};
+diff --git a/components/com.database/src/mongo/sorted.js b/components/com.database/src/mongo/sorted.js
+new file mode 100644
+index 0000000..8264b02
+--- /dev/null
++++ b/components/com.database/src/mongo/sorted.js
+@@ -0,0 +1,731 @@
++"use strict";
++
++const _ = require("lodash");
++const utils = require("../../utils");
++
++module.exports = function (module) {
++  const helpers = require("./helpers");
++  const dbHelpers = require("../helpers");
++
++  const util = require("util");
++  const sleep = util.promisify(setTimeout);
++
++  require("./sorted/add")(module);
++  require("./sorted/remove")(module);
++  require("./sorted/union")(module);
++  require("./sorted/intersect")(module);
++
++  module.getSortedSetRange = async function (key, start, stop) {
++    return await getSortedSetRange(key, start, stop, "-inf", "+inf", 1, false);
++  };
++
++  module.getSortedSetRevRange = async function (key, start, stop) {
++    return await getSortedSetRange(key, start, stop, "-inf", "+inf", -1, false);
++  };
++
++  module.getSortedSetRangeWithScores = async function (key, start, stop) {
++    return await getSortedSetRange(key, start, stop, "-inf", "+inf", 1, true);
++  };
++
++  module.getSortedSetRevRangeWithScores = async function (key, start, stop) {
++    return await getSortedSetRange(key, start, stop, "-inf", "+inf", -1, true);
++  };
++
++  async function getSortedSetRange(
++    key,
++    start,
++    stop,
++    min,
++    max,
++    sort,
++    withScores
++  ) {
++    if (!key) {
++      return;
++    }
++    const isArray = Array.isArray(key);
++    if ((start < 0 && start > stop) || (isArray && !key.length)) {
++      return [];
++    }
++    const query = { _key: key };
++    if (isArray) {
++      if (key.length > 1) {
++        query._key = { $in: key };
++      } else {
++        query._key = key[0];
++      }
++    }
++
++    if (min !== "-inf") {
++      query.score = { $gte: min };
++    }
++    if (max !== "+inf") {
++      query.score = query.score || {};
++      query.score.$lte = max;
++    }
++
++    if (max === min) {
++      query.score = max;
++    }
++
++    const fields = { _id: 0, _key: 0 };
++    if (!withScores) {
++      fields.score = 0;
++    }
++
++    let reverse = false;
++    if (start === 0 && stop < -1) {
++      reverse = true;
++      sort *= -1;
++      start = Math.abs(stop + 1);
++      stop = -1;
++    } else if (start < 0 && stop > start) {
++      const tmp1 = Math.abs(stop + 1);
++      stop = Math.abs(start + 1);
++      start = tmp1;
++    }
++
++    let limit = stop - start + 1;
++    if (limit <= 0) {
++      limit = 0;
++    }
++
++    let result = [];
++    async function doQuery(_key, fields, skip, limit) {
++      return await module.client
++        .collection("objects")
++        .find({ ...query, ...{ _key: _key } }, { projection: fields })
++        .sort({ score: sort })
++        .skip(skip)
++        .limit(limit)
++        .toArray();
++    }
++
++    if (isArray && key.length > 100) {
++      const batches = [];
++      const batch = require("../../batch");
++      const batchSize = Math.ceil(key.length / Math.ceil(key.length / 100));
++      await batch.processArray(
++        key,
++        async (currentBatch) => batches.push(currentBatch),
++        { batch: batchSize }
++      );
++      const batchData = await Promise.all(
++        batches.map((batch) =>
++          doQuery({ $in: batch }, { _id: 0, _key: 0 }, 0, stop + 1)
++        )
++      );
++      result = dbHelpers.mergeBatch(batchData, 0, stop, sort);
++      if (start > 0) {
++        result = result.slice(start, stop !== -1 ? stop + 1 : undefined);
++      }
++    } else {
++      result = await doQuery(query._key, fields, start, limit);
++    }
++
++    if (reverse) {
++      result.reverse();
++    }
++    if (!withScores) {
++      result = result.map((item) => item.value);
++    }
++
++    return result;
++  }
++
++  module.getSortedSetRangeByScore = async function (
++    key,
++    start,
++    count,
++    min,
++    max
++  ) {
++    return await getSortedSetRangeByScore(
++      key,
++      start,
++      count,
++      min,
++      max,
++      1,
++      false
++    );
++  };
++
++  module.getSortedSetRevRangeByScore = async function (
++    key,
++    start,
++    count,
++    max,
++    min
++  ) {
++    return await getSortedSetRangeByScore(
++      key,
++      start,
++      count,
++      min,
++      max,
++      -1,
++      false
++    );
++  };
++
++  module.getSortedSetRangeByScoreWithScores = async function (
++    key,
++    start,
++    count,
++    min,
++    max
++  ) {
++    return await getSortedSetRangeByScore(key, start, count, min, max, 1, true);
++  };
++
++  module.getSortedSetRevRangeByScoreWithScores = async function (
++    key,
++    start,
++    count,
++    max,
++    min
++  ) {
++    return await getSortedSetRangeByScore(
++      key,
++      start,
++      count,
++      min,
++      max,
++      -1,
++      true
++    );
++  };
++
++  async function getSortedSetRangeByScore(
++    key,
++    start,
++    count,
++    min,
++    max,
++    sort,
++    withScores
++  ) {
++    if (parseInt(count, 10) === 0) {
++      return [];
++    }
++    const stop = parseInt(count, 10) === -1 ? -1 : start + count - 1;
++    return await getSortedSetRange(
++      key,
++      start,
++      stop,
++      min,
++      max,
++      sort,
++      withScores
++    );
++  }
++
++  module.sortedSetCount = async function (key, min, max) {
++    if (!key) {
++      return;
++    }
++
++    const query = { _key: key };
++    if (min !== "-inf") {
++      query.score = { $gte: min };
++    }
++    if (max !== "+inf") {
++      query.score = query.score || {};
++      query.score.$lte = max;
++    }
++
++    const count = await module.client
++      .collection("objects")
++      .countDocuments(query);
++    return count || 0;
++  };
++
++  module.sortedSetCard = async function (key) {
++    if (!key) {
++      return 0;
++    }
++    const count = await module.client
++      .collection("objects")
++      .countDocuments({ _key: key });
++    return parseInt(count, 10) || 0;
++  };
++
++  module.sortedSetsCard = async function (keys) {
++    if (!Array.isArray(keys) || !keys.length) {
++      return [];
++    }
++    const promises = keys.map((k) => module.sortedSetCard(k));
++    return await Promise.all(promises);
++  };
++
++  module.sortedSetsCardSum = async function (keys) {
++    if (!keys || (Array.isArray(keys) && !keys.length)) {
++      return 0;
++    }
++
++    const count = await module.client
++      .collection("objects")
++      .countDocuments({ _key: Array.isArray(keys) ? { $in: keys } : keys });
++    return parseInt(count, 10) || 0;
++  };
++
++  module.sortedSetRank = async function (key, value) {
++    return await getSortedSetRank(false, key, value);
++  };
++
++  module.sortedSetRevRank = async function (key, value) {
++    return await getSortedSetRank(true, key, value);
++  };
++
++  async function getSortedSetRank(reverse, key, value) {
++    if (!key) {
++      return;
++    }
++    value = helpers.valueToString(value);
++    const score = await module.sortedSetScore(key, value);
++    if (score === null) {
++      return null;
++    }
++
++    return await module.client.collection("objects").countDocuments({
++      $or: [
++        {
++          _key: key,
++          score: reverse ? { $gt: score } : { $lt: score },
++        },
++        {
++          _key: key,
++          score: score,
++          value: reverse ? { $gt: value } : { $lt: value },
++        },
++      ],
++    });
++  }
++
++  module.sortedSetsRanks = async function (keys, values) {
++    return await sortedSetsRanks(module.sortedSetRank, keys, values);
++  };
++
++  module.sortedSetsRevRanks = async function (keys, values) {
++    return await sortedSetsRanks(module.sortedSetRevRank, keys, values);
++  };
++
++  async function sortedSetsRanks(method, keys, values) {
++    if (!Array.isArray(keys) || !keys.length) {
++      return [];
++    }
++    const data = new Array(values.length);
++    for (let i = 0; i < values.length; i += 1) {
++      data[i] = { key: keys[i], value: values[i] };
++    }
++    const promises = data.map((item) => method(item.key, item.value));
++    return await Promise.all(promises);
++  }
++
++  module.sortedSetRanks = async function (key, values) {
++    return await sortedSetRanks(false, key, values);
++  };
++
++  module.sortedSetRevRanks = async function (key, values) {
++    return await sortedSetRanks(true, key, values);
++  };
++
++  async function sortedSetRanks(reverse, key, values) {
++    if (values.length === 1) {
++      return [await getSortedSetRank(reverse, key, values[0])];
++    }
++    const sortedSet = await module[
++      reverse ? "getSortedSetRevRange" : "getSortedSetRange"
++    ](key, 0, -1);
++    return values.map((value) => {
++      if (!value) {
++        return null;
++      }
++      const index = sortedSet.indexOf(value.toString());
++      return index !== -1 ? index : null;
++    });
++  }
++
++  module.sortedSetScore = async function (key, value) {
++    if (!key) {
++      return null;
++    }
++    value = helpers.valueToString(value);
++    const result = await module.client
++      .collection("objects")
++      .findOne(
++        { _key: key, value: value },
++        { projection: { _id: 0, _key: 0, value: 0 } }
++      );
++    return result ? result.score : null;
++  };
++
++  module.sortedSetsScore = async function (keys, value) {
++    if (!Array.isArray(keys) || !keys.length) {
++      return [];
++    }
++    value = helpers.valueToString(value);
++    const result = await module.client
++      .collection("objects")
++      .find(
++        { _key: { $in: keys }, value: value },
++        { projection: { _id: 0, value: 0 } }
++      )
++      .toArray();
++    const map = {};
++    result.forEach((item) => {
++      if (item) {
++        map[item._key] = item;
++      }
++    });
++
++    return keys.map((key) => (map[key] ? map[key].score : null));
++  };
++
++  module.sortedSetScores = async function (key, values) {
++    if (!key) {
++      return null;
++    }
++    if (!values.length) {
++      return [];
++    }
++    values = values.map(helpers.valueToString);
++    const result = await module.client
++      .collection("objects")
++      .find(
++        { _key: key, value: { $in: values } },
++        { projection: { _id: 0, _key: 0 } }
++      )
++      .toArray();
++
++    const valueToScore = {};
++    result.forEach((item) => {
++      if (item) {
++        valueToScore[item.value] = item.score;
++      }
++    });
++
++    return values.map((v) =>
++      utils.isNumber(valueToScore[v]) ? valueToScore[v] : null
++    );
++  };
++
++  module.isSortedSetMember = async function (key, value) {
++    if (!key) {
++      return;
++    }
++    value = helpers.valueToString(value);
++    const result = await module.client.collection("objects").findOne(
++      {
++        _key: key,
++        value: value,
++      },
++      {
++        projection: { _id: 0, value: 1 },
++      }
++    );
++    return !!result;
++  };
++
++  module.isSortedSetMembers = async function (key, values) {
++    if (!key) {
++      return;
++    }
++    if (!values.length) {
++      return [];
++    }
++    values = values.map(helpers.valueToString);
++    const results = await module.client
++      .collection("objects")
++      .find(
++        {
++          _key: key,
++          value: { $in: values },
++        },
++        {
++          projection: { _id: 0, value: 1 },
++        }
++      )
++      .toArray();
++
++    const isMember = {};
++    results.forEach((item) => {
++      if (item) {
++        isMember[item.value] = true;
++      }
++    });
++
++    return values.map((value) => !!isMember[value]);
++  };
++
++  module.isMemberOfSortedSets = async function (keys, value) {
++    if (!Array.isArray(keys) || !keys.length) {
++      return [];
++    }
++    value = helpers.valueToString(value);
++    const results = await module.client
++      .collection("objects")
++      .find(
++        {
++          _key: { $in: keys },
++          value: value,
++        },
++        {
++          projection: { _id: 0, _key: 1, value: 1 },
++        }
++      )
++      .toArray();
++
++    const isMember = {};
++    results.forEach((item) => {
++      if (item) {
++        isMember[item._key] = true;
++      }
++    });
++
++    return keys.map((key) => !!isMember[key]);
++  };
++
++  module.getSortedSetMembers = async function (key) {
++    const data = await module.getSortedSetsMembers([key]);
++    return data && data[0];
++  };
++
++  module.getSortedSetsMembers = async function (keys) {
++    if (!Array.isArray(keys) || !keys.length) {
++      return [];
++    }
++    const arrayOfKeys = keys.length > 1;
++    const projection = { _id: 0, value: 1 };
++    if (arrayOfKeys) {
++      projection._key = 1;
++    }
++    const data = await module.client
++      .collection("objects")
++      .find(
++        {
++          _key: arrayOfKeys ? { $in: keys } : keys[0],
++        },
++        { projection: projection }
++      )
++      .toArray();
++
++    if (!arrayOfKeys) {
++      return [data.map((item) => item.value)];
++    }
++    const sets = {};
++    data.forEach((item) => {
++      sets[item._key] = sets[item._key] || [];
++      sets[item._key].push(item.value);
++    });
++
++    return keys.map((k) => sets[k] || []);
++  };
++
++  module.sortedSetIncrBy = async function (key, increment, value) {
++    if (!key) {
++      return;
++    }
++    const data = {};
++    value = helpers.valueToString(value);
++    data.score = parseFloat(increment);
++
++    try {
++      const result = await module.client.collection("objects").findOneAndUpdate(
++        {
++          _key: key,
++          value: value,
++        },
++        {
++          $inc: data,
++        },
++        {
++          returnDocument: "after",
++          upsert: true,
++        }
++      );
++      return result && result.value ? result.value.score : null;
++    } catch (err) {
++      // if there is duplicate key error retry the upsert
++      // https://github.com/NodeBB/NodeBB/issues/4467
++      // https://jira.mongodb.org/browse/SERVER-14322
++      // https://docs.mongodb.org/manual/reference/command/findAndModify/#upsert-and-unique-index
++      if (err && err.message.startsWith("E11000 duplicate key error")) {
++        return await module.sortedSetIncrBy(key, increment, value);
++      }
++      throw err;
++    }
++  };
++
++  module.sortedSetIncrByBulk = async function (data) {
++    const bulk = module.client
++      .collection("objects")
++      .initializeUnorderedBulkOp();
++    data.forEach((item) => {
++      bulk
++        .find({ _key: item[0], value: helpers.valueToString(item[2]) })
++        .upsert()
++        .update({ $inc: { score: parseFloat(item[1]) } });
++    });
++    await bulk.execute();
++    const result = await module.client
++      .collection("objects")
++      .find(
++        {
++          _key: { $in: _.uniq(data.map((i) => i[0])) },
++          value: { $in: _.uniq(data.map((i) => i[2])) },
++        },
++        {
++          projection: { _id: 0, _key: 1, value: 1, score: 1 },
++        }
++      )
++      .toArray();
++
++    const map = {};
++    result.forEach((item) => {
++      map[`${item._key}:${item.value}`] = item.score;
++    });
++    return data.map((item) => map[`${item[0]}:${item[2]}`]);
++  };
++
++  module.getSortedSetRangeByLex = async function (key, min, max, start, count) {
++    return await sortedSetLex(key, min, max, 1, start, count);
++  };
++
++  module.getSortedSetRevRangeByLex = async function (
++    key,
++    max,
++    min,
++    start,
++    count
++  ) {
++    return await sortedSetLex(key, min, max, -1, start, count);
++  };
++
++  module.sortedSetLexCount = async function (key, min, max) {
++    const data = await sortedSetLex(key, min, max, 1, 0, 0);
++    return data ? data.length : null;
++  };
++
++  async function sortedSetLex(key, min, max, sort, start, count) {
++    const query = { _key: key };
++    start = start !== undefined ? start : 0;
++    count = count !== undefined ? count : 0;
++    buildLexQuery(query, min, max);
++
++    const data = await module.client
++      .collection("objects")
++      .find(query, { projection: { _id: 0, value: 1 } })
++      .sort({ value: sort })
++      .skip(start)
++      .limit(count === -1 ? 0 : count)
++      .toArray();
++
++    return data.map((item) => item && item.value);
++  }
++
++  module.sortedSetRemoveRangeByLex = async function (key, min, max) {
++    const query = { _key: key };
++    buildLexQuery(query, min, max);
++
++    await module.client.collection("objects").deleteMany(query);
++  };
++
++  function buildLexQuery(query, min, max) {
++    if (min !== "-") {
++      if (min.match(/^\(/)) {
++        query.value = { $gt: min.slice(1) };
++      } else if (min.match(/^\[/)) {
++        query.value = { $gte: min.slice(1) };
++      } else {
++        query.value = { $gte: min };
++      }
++    }
++    if (max !== "+") {
++      query.value = query.value || {};
++      if (max.match(/^\(/)) {
++        query.value.$lt = max.slice(1);
++      } else if (max.match(/^\[/)) {
++        query.value.$lte = max.slice(1);
++      } else {
++        query.value.$lte = max;
++      }
++    }
++  }
++
++  module.getSortedSetScan = async function (params) {
++    const project = { _id: 0, value: 1 };
++    if (params.withScores) {
++      project.score = 1;
++    }
++
++    const match = helpers.buildMatchQuery(params.match);
++    let regex;
++    try {
++      regex = new RegExp(match);
++    } catch (err) {
++      return [];
++    }
++
++    const cursor = module.client.collection("objects").find(
++      {
++        _key: params.key,
++        value: { $regex: regex },
++      },
++      { projection: project }
++    );
++
++    if (params.limit) {
++      cursor.limit(params.limit);
++    }
++
++    const data = await cursor.toArray();
++    if (!params.withScores) {
++      return data.map((d) => d.value);
++    }
++    return data;
++  };
++
++  module.processSortedSet = async function (setKey, processFn, options) {
++    let done = false;
++    const ids = [];
++    const project = { _id: 0, _key: 0 };
++
++    if (!options.withScores) {
++      project.score = 0;
++    }
++    const cursor = await module.client
++      .collection("objects")
++      .find({ _key: setKey }, { projection: project })
++      .sort({ score: 1 })
++      .batchSize(options.batch);
++
++    if (
++      processFn &&
++      processFn.constructor &&
++      processFn.constructor.name !== "AsyncFunction"
++    ) {
++      processFn = util.promisify(processFn);
++    }
++
++    while (!done) {
++      /* eslint-disable no-await-in-loop */
++      const item = await cursor.next();
++      if (item === null) {
++        done = true;
++      } else {
++        ids.push(options.withScores ? item : item.value);
++      }
++
++      if (ids.length >= options.batch || (done && ids.length !== 0)) {
++        await processFn(ids);
++
++        ids.length = 0;
++        if (options.interval) {
++          await sleep(options.interval);
++        }
++      }
++    }
++  };
++};
+diff --git a/components/com.database/src/mongo/transaction.js b/components/com.database/src/mongo/transaction.js
+new file mode 100644
+index 0000000..6c4b540
+--- /dev/null
++++ b/components/com.database/src/mongo/transaction.js
+@@ -0,0 +1,8 @@
++"use strict";
++
++module.exports = function (module) {
++  // TODO
++  module.transaction = function (perform, callback) {
++    perform(module.client, callback);
++  };
++};
+diff --git a/components/com.database/src/sql-js/db.js b/components/com.database/src/sql-js/db.js
+new file mode 100644
+index 0000000..d2d234d
+--- /dev/null
++++ b/components/com.database/src/sql-js/db.js
+@@ -0,0 +1,79 @@
++import initSqlJs from "sql.js";
++import User from "../../../com.users/src/user.class";
++import { paths } from "../../../constants";
++
++const user = new User();
++
++const SQL = await initSqlJs({
++	// Required to load the wasm binary asynchronously. Of course, you can host it wherever you want
++	// You can omit locateFile completely when running in node
++	locateFile: (file) => paths.dbPath + "/" + file,
++});
++
++// Create a database
++const db = new SQL.Database();
++// NOTE: You can also use new SQL.Database(data) where
++// data is an Uint8Array representing an SQLite database file
++
++// Execute a single SQL string that contains multiple statements
++let sqlstr = "CREATE TABLE hello (a int, b char);";
++db.run(sqlstr); // Run the query without returning anything
++
++// Prepare an sql statement
++const stmt = db.prepare(sqlstr);
++
++// Bind values to the parameters and fetch the results of the query
++const result = stmt.getAsObject({ sqlstr });
++console.log(result); // Will print {a:1, b:'world'}
++
++// Bind other values
++stmt.bind([0]);
++while (stmt.step()) console.log(stmt.get()); // Will print [0, 'hello']
++// free the memory used by the statement
++stmt.free();
++// You can not use your statement anymore once it has been freed.
++// But not freeing your statements causes memory leaks. You don't want that.
++
++const res = db.exec("SELECT * FROM hello");
++/*
++[
++  {columns:['a','b'], values:[[0,'hello'],[1,'world']]}
++]
++*/
++
++// You can also use JavaScript functions inside your SQL code
++// Create the js function you need
++function add(a, b) {
++	return a + b;
++}
++// Specifies the SQL function's name, the number of it's arguments, and the js function to use
++db.create_function("add_js", add);
++// Run a query in which the function is used
++db.run("INSERT INTO hello VALUES (add_js(7, 3), add_js('Hello ', 'world'));"); // Inserts 10 and 'Hello world'
++
++// You can create custom aggregation functions, by passing a name
++// and a set of functions to `db.create_aggregate`:
++//
++// - an `init` function. This function receives no argument and returns
++//   the initial value for the state of the aggregate function.
++// - a `step` function. This function takes two arguments
++//    - the current state of the aggregation
++//    - a new value to aggregate to the state
++//  It should return a new value for the state.
++// - a `finalize` function. This function receives a state object, and
++//   returns the final value of the aggregate. It can be omitted, in which case
++//   the final value of the state will be returned directly by the aggregate function.
++//
++// Here is an example aggregation function, `json_agg`, which will collect all
++// input values and return them as a JSON array:
++db.create_aggregate("json_agg", {
++	init: () => [],
++	step: (state, val) => [...state, val],
++	finalize: (state) => JSON.stringify(state),
++});
++
++db.exec("SELECT json_agg(column1) FROM (VALUES ('hello'), ('world'))");
++// -> The result of the query is the string '["hello","world"]'
++
++// Export the database to an Uint8Array containing the SQLite database file
++const binaryArray = db.export();
+diff --git a/components/com.errors/errors/errorHandler.js b/components/com.errors/errors/errorHandler.js
+new file mode 100644
+index 0000000..602f8e8
+--- /dev/null
++++ b/components/com.errors/errors/errorHandler.js
+@@ -0,0 +1,38 @@
++import { lockOutMessage } from "../../../config/dev-env";
++
++/**
++ * @author @wojtekxtx
++ * @description Class for handling errors
++ * @since 0.2-alpha
++ */
++class errorHandler {
++	super()
++
++	ctxStatusOk() {
++		return ctxStatusOK = "200, OK";
++	}
++
++	ctxRedirected() {
++		return ctxStatusRedirected = "301, Redirected";
++	}
++
++	ctxPageNotFound() {
++		return ctxStatusPageNotFound = "404, Page noty found";
++	}
++
++	loggedUserIsNotAdmin() {
++		return "Logged user is: "+userLoggedIn;
++	}
++
++	tmpNotParseable() {
++		return errTemplateNotParseable = "This template is not parseable";
++	}
++
++	typeNotParseable() {
++		return elementNotParseable = "This element/object is not parseable.";
++	}
++
++	accountLockedMessage() {
++		return console.log(lockOutMessage);
++	}
++}
+\ No newline at end of file
+diff --git a/components/com.errors/index.js b/components/com.errors/index.js
+new file mode 100644
+index 0000000..20ce537
+--- /dev/null
++++ b/components/com.errors/index.js
+@@ -0,0 +1,4 @@
++/**
++ * @author @wojtekxtx
++ * 
++ */
+\ No newline at end of file
+diff --git a/components/com.logger/index.js b/components/com.logger/index.js
+new file mode 100644
+index 0000000..b56efcd
+--- /dev/null
++++ b/components/com.logger/index.js
+@@ -0,0 +1,3 @@
++/**
++ * @author @wojtekxtx
++ */
+\ No newline at end of file
+diff --git a/components/com.logger/src/logger.js b/components/com.logger/src/logger.js
+new file mode 100644
+index 0000000..91f2947
+--- /dev/null
++++ b/components/com.logger/src/logger.js
+@@ -0,0 +1,235 @@
++"use strict";
++
++/*
++ * Logger module: ability to dynamically turn on/off logging for http requests & socket.io events
++ */
++
++const fs = require("fs");
++const path = require("path");
++const winston = require("winston");
++const util = require("util");
++const morgan = require("morgan");
++
++const file = require("./file");
++const meta = require("./meta");
++
++const opts = {
++  /*
++   * state used by Logger
++   */
++  express: {
++    app: {},
++    set: 0,
++    ofn: null,
++  },
++  streams: {
++    log: { f: process.stdout },
++  },
++};
++
++/* -- Logger -- */
++const Logger = module.exports;
++
++Logger.init = function (app) {
++  opts.express.app = app;
++  /* Open log file stream & initialize express logging if meta.config.logger* variables are set */
++  Logger.setup();
++};
++
++Logger.setup = function () {
++  Logger.setup_one("loggerPath", meta.config.loggerPath);
++};
++
++Logger.setup_one = function (key, value) {
++  /*
++   * 1. Open the logger stream: stdout or file
++   * 2. Re-initialize the express logger hijack
++   */
++  if (key === "loggerPath") {
++    Logger.setup_one_log(value);
++    Logger.express_open();
++  }
++};
++
++Logger.setup_one_log = function (value) {
++  /*
++   * If logging is currently enabled, create a stream.
++   * Otherwise, close the current stream
++   */
++  if (meta.config.loggerStatus > 0 || meta.config.loggerIOStatus) {
++    const stream = Logger.open(value);
++    if (stream) {
++      opts.streams.log.f = stream;
++    } else {
++      opts.streams.log.f = process.stdout;
++    }
++  } else {
++    Logger.close(opts.streams.log);
++  }
++};
++
++Logger.open = function (value) {
++  /* Open the streams to log to: either a path or stdout */
++  let stream;
++  if (value) {
++    if (file.existsSync(value)) {
++      const stats = fs.statSync(value);
++      if (stats) {
++        if (stats.isDirectory()) {
++          stream = fs.createWriteStream(path.join(value, "nodebb.log"), {
++            flags: "a",
++          });
++        } else {
++          stream = fs.createWriteStream(value, { flags: "a" });
++        }
++      }
++    } else {
++      stream = fs.createWriteStream(value, { flags: "a" });
++    }
++
++    if (stream) {
++      stream.on("error", (err) => {
++        winston.error(err.stack);
++      });
++    }
++  } else {
++    stream = process.stdout;
++  }
++  return stream;
++};
++
++Logger.close = function (stream) {
++  if (stream.f !== process.stdout && stream.f) {
++    stream.end();
++  }
++  stream.f = null;
++};
++
++Logger.monitorConfig = function (socket, data) {
++  /*
++   * This monitor's when a user clicks "save" in the Logger section of the admin panel
++   */
++  Logger.setup_one(data.key, data.value);
++  Logger.io_close(socket);
++  Logger.io(socket);
++};
++
++Logger.express_open = function () {
++  if (opts.express.set !== 1) {
++    opts.express.set = 1;
++    opts.express.app.use(Logger.expressLogger);
++  }
++  /*
++   * Always initialize "ofn" (original function) with the original logger function
++   */
++  opts.express.ofn = morgan("combined", { stream: opts.streams.log.f });
++};
++
++Logger.expressLogger = function (req, res, next) {
++  /*
++   * The new express.logger
++   *
++   * This hijack allows us to turn logger on/off dynamically within express
++   */
++  if (meta.config.loggerStatus > 0) {
++    return opts.express.ofn(req, res, next);
++  }
++  return next();
++};
++
++Logger.prepare_io_string = function (_type, _uid, _args) {
++  /*
++   * This prepares the output string for intercepted socket.io events
++   *
++   * The format is: io: <uid> <event> <args>
++   */
++  try {
++    return `io: ${_uid} ${_type} ${util.inspect(
++      Array.prototype.slice.call(_args),
++      { depth: 3 }
++    )}\n`;
++  } catch (err) {
++    winston.info("Logger.prepare_io_string: Failed", err);
++    return "error";
++  }
++};
++
++Logger.io_close = function (socket) {
++  /*
++   * Restore all hijacked sockets to their original emit/on functions
++   */
++  if (
++    !socket ||
++    !socket.io ||
++    !socket.io.sockets ||
++    !socket.io.sockets.sockets
++  ) {
++    return;
++  }
++
++  const clientsMap = socket.io.sockets.sockets;
++
++  for (const [, client] of clientsMap) {
++    if (client.oEmit && client.oEmit !== client.emit) {
++      client.emit = client.oEmit;
++    }
++
++    if (client.$onevent && client.$onevent !== client.onevent) {
++      client.onevent = client.$onevent;
++    }
++  }
++};
++
++Logger.io = function (socket) {
++  /*
++   * Go through all of the currently established sockets & hook their .emit/.on
++   */
++
++  if (
++    !socket ||
++    !socket.io ||
++    !socket.io.sockets ||
++    !socket.io.sockets.sockets
++  ) {
++    return;
++  }
++
++  const clientsMap = socket.io.sockets.sockets;
++  for (const [, socketObj] of clientsMap) {
++    Logger.io_one(socketObj, socketObj.uid);
++  }
++};
++
++Logger.io_one = function (socket, uid) {
++  /*
++   * This function replaces a socket's .emit/.on functions in order to intercept events
++   */
++  function override(method, name, errorMsg) {
++    return (...args) => {
++      if (opts.streams.log.f) {
++        opts.streams.log.f.write(Logger.prepare_io_string(name, uid, args));
++      }
++
++      try {
++        method.apply(socket, args);
++      } catch (err) {
++        winston.info(errorMsg, err);
++      }
++    };
++  }
++
++  if (socket && meta.config.loggerIOStatus > 0) {
++    // courtesy of: http://stackoverflow.com/a/9674248
++    socket.oEmit = socket.emit;
++    const { emit } = socket;
++    socket.emit = override(emit, "emit", "Logger.io_one: emit.apply: Failed");
++
++    socket.$onvent = socket.onevent;
++    const $onevent = socket.onevent;
++    socket.onevent = override(
++      $onevent,
++      "on",
++      "Logger.io_one: $emit.apply: Failed"
++    );
++  }
++};
+diff --git a/components/com.supporters/applyBadge.js b/components/com.supporters/applyBadge.js
+new file mode 100644
+index 0000000..9327235
+--- /dev/null
++++ b/components/com.supporters/applyBadge.js
+@@ -0,0 +1,18 @@
++import { payingSupporters } from "./supporters";
++
++/**
++ * @author @wojtekxtx
++ * @description Applies badge if user is active supporter
++ * @version 0.1 alpha
++ * @class supportBadge
++ */
++class supportBadge {
++	super();
++
++	displaySupportBadge() {
++		if (payingSupporters.includes(process.env.LoggedInUser)) {
++			const badgeContainer = document.createElement('div').className('supportBadge');
++			document.getElementById('userPostBitData').appendChild(badgeContainer);
++		}
++	}
++}
+\ No newline at end of file
+diff --git a/components/com.supporters/css/badge.css b/components/com.supporters/css/badge.css
+new file mode 100644
+index 0000000..223ae5b
+--- /dev/null
++++ b/components/com.supporters/css/badge.css
+@@ -0,0 +1,14 @@
++@import "flex.css";
++
++.supportBadge {
++	border: none;
++	padding: 0.25rem !important;
++	width: 5px;
++	height: 5px;
++	display: flex;
++}
++
++.supportBadge:hover {
++	width: 6px;
++	height: 6px;
++}
+\ No newline at end of file
+diff --git a/components/com.supporters/css/flex.css b/components/com.supporters/css/flex.css
+new file mode 100644
+index 0000000..4f37357
+--- /dev/null
++++ b/components/com.supporters/css/flex.css
+@@ -0,0 +1,4 @@
++.flex {
++	display: flex;
++	flex-direction: column;
++}
+\ No newline at end of file
+diff --git a/components/com.supporters/index.js b/components/com.supporters/index.js
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/components/com.supporters/index.js
+diff --git a/components/com.supporters/supporters.js b/components/com.supporters/supporters.js
+new file mode 100644
+index 0000000..2035494
+--- /dev/null
++++ b/components/com.supporters/supporters.js
+@@ -0,0 +1 @@
++export let payingSupporters = ["n1", "n2", "n3", "n4"];
+\ No newline at end of file
+diff --git a/components/com.users/index.js b/components/com.users/index.js
+new file mode 100644
+index 0000000..b56efcd
+--- /dev/null
++++ b/components/com.users/index.js
+@@ -0,0 +1,3 @@
++/**
++ * @author @wojtekxtx
++ */
+\ No newline at end of file
+diff --git a/components/com.users/src/auth.js b/components/com.users/src/auth.js
+new file mode 100644
+index 0000000..ae1091c
+--- /dev/null
++++ b/components/com.users/src/auth.js
+@@ -0,0 +1,210 @@
++"use strict";
++
++import { flatten } from "lodash";
++import { promisify } from "util";
++import { escape } from "validator";
++import { verbose } from "winston";
++import {
++  elementNotParseable,
++  lockOutMessage,
++  lockOutTime,
++  maxFailedLoginAttempts,
++} from "../../../config/dev-env";
++import {
++  exists as _exists,
++  deleteAll,
++  deleteObjectField,
++  deleteObjectFields,
++  getObject,
++  getObjectField,
++  getSortedSetRange,
++  getSortedSetRevRange,
++  getSortedSetsMembers,
++  increment,
++  pexpire,
++  sessionStore,
++  set,
++  sortedSetAdd,
++  sortedSetRemove,
++} from "../database";
++
++export default function (User) {
++  User.auth = {};
++
++  User.auth.logAttempt = async function (uid, ip) {
++    if (!(parseInt(uid, 10) > 0)) {
++      return elementNotParseable;
++    }
++    const exists = await _exists(lockOutTime);
++    if (exists) {
++      throw new Error(lockOutMessage);
++    }
++    const attempts = await increment(`loginAttempts:${uid}`);
++    if (attempts <= maxFailedLoginAttempts) {
++      return await pexpire(`loginAttempts:${uid}`, 1000 * 60 * 60);
++    }
++    // Lock out the account
++    await set(`lockout:${uid}`, "");
++    const duration = lockOutTime;
++
++    await delete `loginAttempts:${uid}`;
++    await pexpire(`lockout:${uid}`, duration);
++    await events.log({
++      type: "account-locked",
++      uid: uid,
++      ip: ip,
++    });
++    throw new Error(lockOutMessage);
++  };
++
++  User.auth.getFeedToken = async function (uid) {
++    if (!(parseInt(uid, 10) > 0)) {
++      return;
++    }
++    const _token = await getObjectField(`user:${uid}`, "rss_token");
++    const token = _token || utils.generateUUID();
++    if (!_token) {
++      await User.setUserField(uid, "rss_token", token);
++    }
++    return token;
++  };
++
++  User.auth.clearLoginAttempts = async function (uid) {
++    await delete `loginAttempts:${uid}`;
++  };
++
++  User.auth.resetLockout = async function (uid) {
++    await deleteAll([`loginAttempts:${uid}`, `lockout:${uid}`]);
++  };
++
++  const getSessionFromStore = promisify((sid, callback) =>
++    sessionStore.get(sid, (err, sessObj) => callback(err, sessObj || null))
++  );
++  const sessionStoreDestroy = promisify((sid, callback) =>
++    sessionStore.destroy(sid, (err) => callback(err))
++  );
++
++  User.auth.getSessions = async function (uid, curSessionId) {
++    await cleanExpiredSessions(uid);
++    const sids = await getSortedSetRevRange(`uid:${uid}:sessions`, 0, 19);
++    let sessions = await Promise.all(
++      sids.map((sid) => getSessionFromStore(sid))
++    );
++    sessions = sessions
++      .map((sessObj, idx) => {
++        if (sessObj && sessObj.meta) {
++          sessObj.meta.current = curSessionId === sids[idx];
++          sessObj.meta.datetimeISO = new Date(
++            sessObj.meta.datetime
++          ).toISOString();
++          sessObj.meta.ip = escape(String(sessObj.meta.ip));
++        }
++        return sessObj && sessObj.meta;
++      })
++      .filter(Boolean);
++    return sessions;
++  };
++
++  async function cleanExpiredSessions(uid) {
++    const uuidMapping = await getObject(`uid:${uid}:sessionUUID:sessionId`);
++    if (!uuidMapping) {
++      return;
++    }
++    const expiredUUIDs = [];
++    const expiredSids = [];
++    await Promise.all(
++      Object.keys(uuidMapping).map(async (uuid) => {
++        const sid = uuidMapping[uuid];
++        const sessionObj = await getSessionFromStore(sid);
++        const expired =
++          !sessionObj ||
++          !sessionObj.hasOwnProperty("passport") ||
++          !sessionObj.passport.hasOwnProperty("user") ||
++          parseInt(sessionObj.passport.user, 10) !== parseInt(uid, 10);
++        if (expired) {
++          expiredUUIDs.push(uuid);
++          expiredSids.push(sid);
++        }
++      })
++    );
++    await deleteObjectFields(`uid:${uid}:sessionUUID:sessionId`, expiredUUIDs);
++    await sortedSetRemove(`uid:${uid}:sessions`, expiredSids);
++  }
++
++  User.auth.addSession = async function (uid, sessionId) {
++    if (!(parseInt(uid, 10) > 0)) {
++      return;
++    }
++    await cleanExpiredSessions(uid);
++    await sortedSetAdd(`uid:${uid}:sessions`, Date.now(), sessionId);
++    await revokeSessionsAboveThreshold(uid, meta.config.maxUserSessions);
++  };
++
++  async function revokeSessionsAboveThreshold(uid, maxUserSessions) {
++    const activeSessions = await getSortedSetRange(
++      `uid:${uid}:sessions`,
++      0,
++      -1
++    );
++    if (activeSessions.length > maxUserSessions) {
++      const sessionsToRevoke = activeSessions.slice(
++        0,
++        activeSessions.length - maxUserSessions
++      );
++      await Promise.all(
++        sessionsToRevoke.map((sessionId) =>
++          User.auth.revokeSession(sessionId, uid)
++        )
++      );
++    }
++  }
++
++  User.auth.revokeSession = async function (sessionId, uid) {
++    verbose(`[user.auth] Revoking session ${sessionId} for user ${uid}`);
++    const sessionObj = await getSessionFromStore(sessionId);
++    if (sessionObj && sessionObj.meta && sessionObj.meta.uuid) {
++      await deleteObjectField(
++        `uid:${uid}:sessionUUID:sessionId`,
++        sessionObj.meta.uuid
++      );
++    }
++    await Promise.all([
++      sortedSetRemove(`uid:${uid}:sessions`, sessionId),
++      sessionStoreDestroy(sessionId),
++    ]);
++  };
++
++  User.auth.revokeAllSessions = async function (uids, except) {
++    uids = Array.isArray(uids) ? uids : [uids];
++    const sids = await getSortedSetsMembers(
++      uids.map((uid) => `uid:${uid}:sessions`)
++    );
++    const promises = [];
++    uids.forEach((uid, index) => {
++      const ids = sids[index].filter((id) => id !== except);
++      if (ids.length) {
++        promises.push(ids.map((s) => User.auth.revokeSession(s, uid)));
++      }
++    });
++    await Promise.all(promises);
++  };
++
++  User.auth.deleteAllSessions = async function () {
++    await batch.processSortedSet(
++      "users:joindate",
++      async (uids) => {
++        const sessionKeys = uids.map((uid) => `uid:${uid}:sessions`);
++        const sessionUUIDKeys = uids.map(
++          (uid) => `uid:${uid}:sessionUUID:sessionId`
++        );
++        const sids = flatten(await getSortedSetRange(sessionKeys, 0, -1));
++
++        await Promise.all([
++          deleteAll(sessionKeys.concat(sessionUUIDKeys)),
++          ...sids.map((sid) => sessionStoreDestroy(sid)),
++        ]);
++      },
++      { batch: 1000 }
++    );
++  };
++}
+diff --git a/components/com.users/src/bans.js b/components/com.users/src/bans.js
+new file mode 100644
+index 0000000..54a83b6
+--- /dev/null
++++ b/components/com.users/src/bans.js
+@@ -0,0 +1,165 @@
++"use strict";
++
++const winston = require("winston");
++
++const meta = require("../meta");
++const emailer = require("../emailer");
++const db = require("../database");
++const groups = require("../groups");
++const privileges = require("../privileges");
++
++module.exports = function (User) {
++  User.bans = {};
++
++  User.bans.ban = async function (uid, until, reason) {
++    // "until" (optional) is unix timestamp in milliseconds
++    // "reason" (optional) is a string
++    until = until || 0;
++    reason = reason || "";
++
++    const now = Date.now();
++
++    until = parseInt(until, 10);
++    if (isNaN(until)) {
++      throw new Error("[[error:ban-expiry-missing]]");
++    }
++
++    const banKey = `uid:${uid}:ban:${now}`;
++    const banData = {
++      uid: uid,
++      timestamp: now,
++      expire: until > now ? until : 0,
++    };
++    if (reason) {
++      banData.reason = reason;
++    }
++
++    // Leaving all other system groups to have privileges constrained to the "banned-users" group
++    const systemGroups = groups.systemGroups.filter(
++      (group) => group !== groups.BANNED_USERS
++    );
++    await groups.leave(systemGroups, uid);
++    await groups.join(groups.BANNED_USERS, uid);
++    await db.sortedSetAdd("users:banned", now, uid);
++    await db.sortedSetAdd(`uid:${uid}:bans:timestamp`, now, banKey);
++    await db.setObject(banKey, banData);
++    await User.setUserField(uid, "banned:expire", banData.expire);
++    if (until > now) {
++      await db.sortedSetAdd("users:banned:expire", until, uid);
++    } else {
++      await db.sortedSetRemove("users:banned:expire", uid);
++    }
++
++    // Email notification of ban
++    const username = await User.getUserField(uid, "username");
++    const siteTitle = meta.config.title || "NodeBB";
++
++    const data = {
++      subject: `[[email:banned.subject, ${siteTitle}]]`,
++      username: username,
++      until: until ? new Date(until).toUTCString().replace(/,/g, "\\,") : false,
++      reason: reason,
++    };
++    await emailer
++      .send("banned", uid, data)
++      .catch((err) => winston.error(`[emailer.send] ${err.stack}`));
++
++    return banData;
++  };
++
++  User.bans.unban = async function (uids) {
++    uids = Array.isArray(uids) ? uids : [uids];
++    const userData = await User.getUsersFields(uids, ["email:confirmed"]);
++
++    await db.setObject(
++      uids.map((uid) => `user:${uid}`),
++      { "banned:expire": 0 }
++    );
++
++    /* eslint-disable no-await-in-loop */
++    for (const user of userData) {
++      const systemGroupsToJoin = [
++        "registered-users",
++        parseInt(user["email:confirmed"], 10) === 1
++          ? "verified-users"
++          : "unverified-users",
++      ];
++      await groups.leave(groups.BANNED_USERS, user.uid);
++      // An unbanned user would lost its previous "Global Moderator" status
++      await groups.join(systemGroupsToJoin, user.uid);
++    }
++
++    await db.sortedSetRemove(["users:banned", "users:banned:expire"], uids);
++  };
++
++  User.bans.isBanned = async function (uids) {
++    const isArray = Array.isArray(uids);
++    uids = isArray ? uids : [uids];
++    const result = await User.bans.unbanIfExpired(uids);
++    return isArray ? result.map((r) => r.banned) : result[0].banned;
++  };
++
++  User.bans.canLoginIfBanned = async function (uid) {
++    let canLogin = true;
++
++    const { banned } = (await User.bans.unbanIfExpired([uid]))[0];
++    // Group privilege overshadows individual one
++    if (banned) {
++      canLogin = await privileges.global.canGroup(
++        "local:login",
++        groups.BANNED_USERS
++      );
++    }
++    if (banned && !canLogin) {
++      // Checking a single privilege of user
++      canLogin = await groups.isMember(uid, "cid:0:privileges:local:login");
++    }
++
++    return canLogin;
++  };
++
++  User.bans.unbanIfExpired = async function (uids) {
++    // loading user data will unban if it has expired -barisu
++    const userData = await User.getUsersFields(uids, ["banned:expire"]);
++    return User.bans.calcExpiredFromUserData(userData);
++  };
++
++  User.bans.calcExpiredFromUserData = async function (userData) {
++    const isArray = Array.isArray(userData);
++    userData = isArray ? userData : [userData];
++    const banned = await groups.isMembers(
++      userData.map((u) => u.uid),
++      groups.BANNED_USERS
++    );
++    userData = userData.map((userData, index) => ({
++      banned: banned[index],
++      "banned:expire": userData && userData["banned:expire"],
++      banExpired:
++        userData &&
++        userData["banned:expire"] <= Date.now() &&
++        userData["banned:expire"] !== 0,
++    }));
++    return isArray ? userData : userData[0];
++  };
++
++  User.bans.filterBanned = async function (uids) {
++    const isBanned = await User.bans.isBanned(uids);
++    return uids.filter((uid, index) => !isBanned[index]);
++  };
++
++  User.bans.getReason = async function (uid) {
++    if (parseInt(uid, 10) <= 0) {
++      return "";
++    }
++    const keys = await db.getSortedSetRevRange(
++      `uid:${uid}:bans:timestamp`,
++      0,
++      0
++    );
++    if (!keys.length) {
++      return "";
++    }
++    const banObj = await db.getObject(keys[0]);
++    return banObj && banObj.reason ? banObj.reason : "";
++  };
++};
+diff --git a/components/com.users/src/create.js b/components/com.users/src/create.js
+new file mode 100644
+index 0000000..e049555
+--- /dev/null
++++ b/components/com.users/src/create.js
+@@ -0,0 +1,224 @@
++"use strict";
++
++const zxcvbn = require("zxcvbn");
++const winston = require("winston");
++
++const db = require("../database");
++const utils = require("../utils");
++const slugify = require("../slugify");
++const plugins = require("../plugins");
++const groups = require("../groups");
++const meta = require("../meta");
++const analytics = require("../analytics");
++
++module.exports = function (User) {
++  User.create = async function (data) {
++    data.username = data.username.trim();
++    data.userslug = slugify(data.username);
++    if (data.email !== undefined) {
++      data.email = String(data.email).trim();
++    }
++
++    await User.isDataValid(data);
++
++    await lock(data.username, "[[error:username-taken]]");
++    if (data.email && data.email !== data.username) {
++      await lock(data.email, "[[error:email-taken]]");
++    }
++
++    try {
++      return await create(data);
++    } finally {
++      await db.deleteObjectFields("locks", [data.username, data.email]);
++    }
++  };
++
++  async function lock(value, error) {
++    const count = await db.incrObjectField("locks", value);
++    if (count > 1) {
++      throw new Error(error);
++    }
++  }
++
++  async function create(data) {
++    const timestamp = data.timestamp || Date.now();
++
++    let userData = {
++      username: data.username,
++      userslug: data.userslug,
++      email: data.email || "",
++      joindate: timestamp,
++      lastonline: timestamp,
++      status: "online",
++    };
++    ["picture", "fullname", "location", "birthday"].forEach((field) => {
++      if (data[field]) {
++        userData[field] = data[field];
++      }
++    });
++    if (data.gdpr_consent === true) {
++      userData.gdpr_consent = 1;
++    }
++    if (data.acceptTos === true) {
++      userData.acceptTos = 1;
++    }
++
++    const renamedUsername = await User.uniqueUsername(userData);
++    const userNameChanged = !!renamedUsername;
++    if (userNameChanged) {
++      userData.username = renamedUsername;
++      userData.userslug = slugify(renamedUsername);
++    }
++
++    const results = await plugins.hooks.fire("filter:user.create", {
++      user: userData,
++      data: data,
++    });
++    userData = results.user;
++
++    const uid = await db.incrObjectField("global", "nextUid");
++    const isFirstUser = uid === 1;
++    userData.uid = uid;
++
++    await db.setObject(`user:${uid}`, userData);
++
++    const bulkAdd = [
++      ["username:uid", userData.uid, userData.username],
++      [
++        `user:${userData.uid}:usernames`,
++        timestamp,
++        `${userData.username}:${timestamp}`,
++      ],
++      [
++        "username:sorted",
++        0,
++        `${userData.username.toLowerCase()}:${userData.uid}`,
++      ],
++      ["userslug:uid", userData.uid, userData.userslug],
++      ["users:joindate", timestamp, userData.uid],
++      ["users:online", timestamp, userData.uid],
++      ["users:postcount", 0, userData.uid],
++      ["users:reputation", 0, userData.uid],
++    ];
++
++    if (userData.fullname) {
++      bulkAdd.push([
++        "fullname:sorted",
++        0,
++        `${userData.fullname.toLowerCase()}:${userData.uid}`,
++      ]);
++    }
++
++    await Promise.all([
++      db.incrObjectField("global", "userCount"),
++      analytics.increment("registrations"),
++      db.sortedSetAddBulk(bulkAdd),
++      groups.join(["registered-users", "unverified-users"], userData.uid),
++      User.notifications.sendWelcomeNotification(userData.uid),
++      storePassword(userData.uid, data.password),
++      User.updateDigestSetting(userData.uid, meta.config.dailyDigestFreq),
++    ]);
++
++    if (userData.email && isFirstUser) {
++      await User.email.confirmByUid(userData.uid);
++    }
++
++    if (userData.email && userData.uid > 1) {
++      await User.email
++        .sendValidationEmail(userData.uid, {
++          email: userData.email,
++          template: "welcome",
++          subject: `[[email:welcome-to, ${
++            meta.config.title || meta.config.browserTitle || "NodeBB"
++          }]]`,
++        })
++        .catch((err) =>
++          winston.error(
++            `[user.create] Validation email failed to send\n[emailer.send] ${err.stack}`
++          )
++        );
++    }
++    if (userNameChanged) {
++      await User.notifications.sendNameChangeNotification(
++        userData.uid,
++        userData.username
++      );
++    }
++    plugins.hooks.fire("action:user.create", { user: userData, data: data });
++    return userData.uid;
++  }
++
++  async function storePassword(uid, password) {
++    if (!password) {
++      return;
++    }
++    const hash = await User.hashPassword(password);
++    await Promise.all([
++      User.setUserFields(uid, {
++        password: hash,
++        "password:shaWrapped": 1,
++      }),
++      User.reset.updateExpiry(uid),
++    ]);
++  }
++
++  User.isDataValid = async function (userData) {
++    if (userData.email && !utils.isEmailValid(userData.email)) {
++      throw new Error("[[error:invalid-email]]");
++    }
++
++    if (!utils.isUserNameValid(userData.username) || !userData.userslug) {
++      throw new Error(`[[error:invalid-username, ${userData.username}]]`);
++    }
++
++    if (userData.password) {
++      User.isPasswordValid(userData.password);
++    }
++
++    if (userData.email) {
++      const available = await User.email.available(userData.email);
++      if (!available) {
++        throw new Error("[[error:email-taken]]");
++      }
++    }
++  };
++
++  User.isPasswordValid = function (password, minStrength) {
++    minStrength =
++      minStrength || minStrength === 0
++        ? minStrength
++        : meta.config.minimumPasswordStrength;
++
++    // Sanity checks: Checks if defined and is string
++    if (!password || !utils.isPasswordValid(password)) {
++      throw new Error("[[error:invalid-password]]");
++    }
++
++    if (password.length < meta.config.minimumPasswordLength) {
++      throw new Error("[[reset_password:password_too_short]]");
++    }
++
++    if (password.length > 512) {
++      throw new Error("[[error:password-too-long]]");
++    }
++
++    const strength = zxcvbn(password);
++    if (strength.score < minStrength) {
++      throw new Error("[[user:weak_password]]");
++    }
++  };
++
++  User.uniqueUsername = async function (userData) {
++    let numTries = 0;
++    let { username } = userData;
++    while (true) {
++      /* eslint-disable no-await-in-loop */
++      const exists = await meta.userOrGroupExists(username);
++      if (!exists) {
++        return numTries ? username : null;
++      }
++      username = `${userData.username} ${numTries.toString(32)}`;
++      numTries += 1;
++    }
++  };
++};
+diff --git a/components/com.users/src/user.class.js b/components/com.users/src/user.class.js
+new file mode 100644
+index 0000000..26d992f
+--- /dev/null
++++ b/components/com.users/src/user.class.js
+@@ -0,0 +1,113 @@
++import devConfig from "../../../config/devEnvClass";
++import { dataValid, passwordEmpty, userRegistrationError } from "../../constants";
++
++/**
++ * @classdescription This class lets you manipulate User Object.
++ * @author @wojtekxtx
++ * @author @emabrey
++ * @access public
++ * @class User
++ * @module User.class
++ * @since 1.0
++ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes
++ * @default true
++ */
++export default class User {
++	constructor(username, pass, mail, web) {
++		username = this.username = "";
++		pass = this.pass = "";
++		mail = this.mail = "";
++		web = this.web = "";
++	}
++
++	/**
++	 * @author @emabrey @wojtekxtx
++	 * @todo #15 Add bofy to IF condition
++	 * @class User
++	 */
++	auth() {
++		const dc = new devConfig();
++		if (username !== null && pass !== null) {
++		}
++	}
++
++	/**
++	 * @author @emabrey
++	 * @description Checks if fields satisfies requirements
++	 * @returns (string)username
++	 * @returns (string)pass
++	 * @returns (string)mail
++	 * @class User
++	 */
++	checkConditions() {
++		if (
++			typeof this.username !== "string" ||
++			typeof this.pass !== "string" ||
++			typeof this.mail !== "string" ||
++			this.username.length <= 25 ||
++			this.pass.length <= 25 ||
++			this.mail.length <= 25
++		) {
++			return this.username || this.pass || this.mail;
++		}
++	}
++	createUser(username, pass) {}
++
++	/**
++	 * @author @wojtekxtx
++	 * @method
++	 * @class User
++	 */
++	showValidationResults() {
++		if (this.checkConditions()) {
++			document.getElementById("userdata-validation-field").innerHTML =
++				dataValid;
++			document.getElementById("submitBtn").removeAttribute("disabled");
++		} else {
++			// @ts-nocheck
++			console.error(userRegistrationError);
++			process.exitCode(1);
++		}
++	}
++
++	/**
++	 * @class User
++	 * @returns (string) passwordEmpty
++	 * @returns (int) hash
++	 */
++	getPasswdHash() {
++		let hash = 0;
++		let i, chr;
++		if (this.pass === 0) {
++			this.pass = hash;
++			return passwordEmpty;
++		} else {
++			for (let i = 0; i < this.length; i++){
++				chr = this.charCodeAt(i);
++				hash = ((hash << 5) - hash) + chr;
++				hash |= 0;
++			}
++			return hash;
++		}
++	}
++
++	/**
++	 * @class User
++	 * @returns (string) username
++	 */
++	getUserName() {
++		return this.username;
++	}
++
++	/**
++	 * @class User
++	 */
++	getUserPass() {
++		const dc = new devConfig();
++		if (dc.getUserAdminStatus()) {
++			document.createElement('admin-pass-field').innerHTML = this.pass;
++		} else {
++			this.getPasswdHash();
++		}
++	}
++}
+\ No newline at end of file
+diff --git a/components/constants.js b/components/constants.js
+new file mode 100644
+index 0000000..a5604ac
+--- /dev/null
++++ b/components/constants.js
+@@ -0,0 +1,34 @@
++"use strict";
++
++import { join } from "path";
++const baseDir = join(__dirname, "../");
++const tmpPath = join(baseDir, "tmp/");
++const loader = join(baseDir, "loader.js");
++const app = join(baseDir, "app.js");
++const pidfile = join(baseDir, "pidfile");
++const config = join(baseDir, "config/devEnvClass.js");
++const currentPackage = join(baseDir, "package.json");
++const nodeModules = join(baseDir, "node_modules");
++const dbPath = join(baseDir, "database");
++const pluginNamePattern =
++	/^(@[\w-]+\/)?nodebb-(theme|plugin|widget|rewards)-[\w-]+$/;
++const themeNamePattern = /^(@[\w-]+\/)?nodebb-theme-[\w-]+$/;
++const paths = {
++	baseDir,
++	loader,
++	app,
++	pidfile,
++	config,
++	currentPackage,
++	installPackage,
++	nodeModules,
++	tmpPath,
++	dbPath,
++};
++const errDisplayingValues = "Unable to display values";
++const cookiesNotEnabled = "Cookies not supported/enabled";
++const dataValid = "User data have required length and format";
++const userRegistrationError = "There was an error while registering";
++const passwordEmpty = "Password is empty!";
++
++export { app, paths, errDisplayingValues, cookiesNotEnabled, dataValid, userRegistrationError, passwordEmpty };
+\ No newline at end of file
+diff --git a/config/dev-env.js b/config/dev-env.js
+index 9490b4e..08fb5b1 100644
+--- a/config/dev-env.js
++++ b/config/dev-env.js
+@@ -1,27 +1,47 @@
+-export const repoaddress = "https://github.com/nslabspl/ejs";
+-export const thisAppName = "Everything JS";
+-export const instanceType = "dev";
++// Date (in local format)
++export const currentDate = Date.now().toLocaleString();
+ 
+-// Date
+-export const currentDate = Date.now();
++// Bool if user is admin
++export const isAdmin = process.env.isAdmin;
+ 
+-/** Experimental.
+- *  May cause instability.
+- *  Use with caution
++// Logged in user
++export const userLoggedIn = process.env('loggedInUserId');
++
++/**
++ * @description Definition of error strings
++ * @author @wojtekxtx
++ * @todo #11 Move to separate file
+  */
++export const lockOutMessage = "This account has been locked out";
++
++// Loginrelated info
++export const lockOutTime = 3600;
++export const maxFailedLoginAttempts = 3;
+ 
+-export const ctxStatusOK = "200, OK";
+-export const ctxStatusRedirected = "301, Redirected";
+-export const ctxStatusPageNotFound = "404, Page noty found";
++// DB
++export const dbHost = "127.0.0.1";
++export const dbPort = 27017;
+ 
+-// Is S/W ready?
++/**
++ * @author @wojtekxtx
++ * @description is SW ready?
++ * @returns bool
++ * @todo #12 Decide upon usage of export vs. module.exports at the EOF
++ */
+ export let isSWReady = navigator.serviceWorker.ready();
+ 
+ // Get template info
+ export function getTemplate(template, specialTags, pipeBeforeTags) {
+   specialTags = specialTags || ["fragment"];
+   pipeBeforeTags = pipeBeforeTags || [];
+-  return parseTemplate(specialTags, pipeBeforeTags)(template);
++  return (
++    parseTemplate(specialTags, pipeBeforeTags)(template) ||
++    console.error({
++      error: errTemplateNotParseable, // <- Error message
++      Date: currentDate, // <- Current date (of LOGGING)
++      Timestamp: Math.floor(currentDate / 1000) // <- Timestamp (date) of event OCCURANCE (in Unix format)
++    })
++  );
+ }
+ 
+ export function getKeyByID(key, run = Promise.resolve(), time = 500) {
+@@ -43,8 +63,8 @@ export function getKeyByID(key, run = Promise.resolve(), time = 500) {
+   return run().then((value) => {
+     this.keys[key] = {
+       value: value,
+-      expire: Date.now() + time,
+-      comments: document.getElementById('comments_section')
++      expire: currentDate + time,
++      comments: document.getElementById("comments_section"),
+     };
+     return value;
+   });
+diff --git a/config/devEnvClass.js b/config/devEnvClass.js
+new file mode 100644
+index 0000000..bdf49bc
+--- /dev/null
++++ b/config/devEnvClass.js
+@@ -0,0 +1,127 @@
++import { cookiesNotEnabled, paths } from "../components/constants";
++import { worker } from "../js/setup_worker";
++import { ctxStatusOK, ctxStatusRequestBypassed, ctxStatusRequestException, ctxStatusRequestStarted, ctxStatusRequestUnhandled } from "./dev-env";
++
++/**
++ * @author @wojtekxtx
++ * @class Config
++ * @since 0.2
++ */
++export default class devConfig {
++	super(
++		getCtxStatus = this.getCtxStatus,
++		getLocalDate = this.getCurrentLocalisedDate,
++		workerStatus = this.isWorkerReady,
++		currentTemplate = this.getTemplate,
++		keyId = this.getKeyByID,
++		userAdminStatus = this.getUserAdminStatus,
++		repoaddress = this.repoaddress,
++		appName = this.thisAppName,
++		instType = this.instanceType
++	)
++
++	getCurrentLocalisedDate() {
++		let currentLocalisedDate = Date.now().toLocaleString();
++		return currentLocalisedDate;
++	}
++
++	getEnviromentMetaData() {
++		return [
++			repoaddress = process.env.REPOADDRESS,
++			appName = process.env.APPNAME,
++			instType = process.env.INSTTYPE
++		]
++	}
++	
++	getCtxStatus() {
++		let ctxStatus;
++		
++		switch (ctxStatus) {
++			case ctxStatusOK:
++				worker.events.on('request:end').emit(ctxStatusOK);
++				break;
++			
++			case ctxStatusRequestUnhandled:
++				worker.events.on('request:unhandled').emit(ctxStatusRequestUnhandled);
++				break;
++			
++			case ctxStatusRequestException:
++				worker.events.on('unhandledException').emit(ctxStatusRequestException);
++				break;
++			
++			case ctxStatusRequestStarted:
++				worker.events.on('request:start').emit(ctxStatusRequestStarted);
++				break;
++			
++			case ctxStatusRequestBypassed:
++				worker.events.on('response:bypass').emit(ctxStatusRequestBypassed);
++				break;
++			
++			default:
++				worker.events.on('request:start').emit(ctxStatusRequestStarted);
++				break;
++		}
++	}
++
++	isWorkerReady() {
++		return navigator.serviceWorker.ready();
++	}
++
++	getTemplate(template, specialTags, pipeBeforeTags) {
++		specialTags = specialTags || ["fragment"];
++		pipeBeforeTags = pipeBeforeTags || [];
++		return parseTemplate(specialTags, pipeBeforeTags)(template);
++	}
++
++	getWorkingDir() {
++		return paths.app.toString();
++	}
++
++	getKeyByID(key, run = Promise.resolve(), time) {
++		time = 500; // ms
++		if (this.keys[key] && Date.now() < this.keys[key].expire) {
++			return Promise.resolve(this.keys[key].value);
++		}
++
++		this.keys[key] = {
++			fetching: true
++		};
++
++		return run().then((value) => {
++			this.keys[key] = {
++				value: value,
++				expire: Date.now() + time,
++			};
++			return value;
++		})
++	}
++
++	getUserLoginState() {
++		return process.env.loggedInUserId;
++	}
++
++	getInstanceName() {
++		return process.env.envName;
++	}
++
++	getUserAdminStatus() {
++		return process.env.isAdmin;
++	}
++
++	getUserCookies() {
++		let cookies = document.cookie;
++		return [
++			document.createElement('div').className('cookieInfoDiv') = cookies
++		]
++	}
++
++	setEnvCookies() {
++		if (navigator.cookieEnabled) {
++			document.cookie("Instance name", this.getInstanceName());
++		} else {
++			console.log(cookiesNotEnabled);
++		}
++	}
++}
++
++export { devConfig };
+diff --git a/config/messages.js b/config/messages.js
+deleted file mode 100644
+index 0aafcf6..0000000
+--- a/config/messages.js
++++ /dev/null
+@@ -1,4 +0,0 @@
+-function logErrorGettingValuesDisplayed() {
+-	let errDisplayingValues = "Unable to display values";
+-	console.error(errDisplayingValues);
+-}
+\ No newline at end of file
+diff --git a/index.js b/index.js
+new file mode 100644
+index 0000000..29988a0
+--- /dev/null
++++ b/index.js
+@@ -0,0 +1,3 @@
++import { toHome } from "./js/redirect";
++
++window.onload(toHome);
+\ No newline at end of file
+diff --git a/js/redirect.js b/js/redirect.js
+index 9acaf1f..d2bdf79 100644
+--- a/js/redirect.js
++++ b/js/redirect.js
+@@ -1,4 +1,4 @@
+-export const homeUrl = "https://www.google.com";
++export const homeUrl = document.URL;
+ 
+ function toHome(homeUrl) {
+   window.location.replace(homeUrl);
+diff --git a/js/std_app_fn.js b/js/std_app_fn.js
+index 7c644d9..3493c8a 100644
+--- a/js/std_app_fn.js
++++ b/js/std_app_fn.js
+@@ -1,5 +1,12 @@
++import { currentDate } from "../config/dev-env";
++
+ function deleteElement(element) {
+-	document.body.classList.remove(element);
++  document.body.classList.remove(element);
++}
++
++function reformatDate() {
++  let formattedDate = currentDate.replace("/", "-");
++  return formattedDate;
+ }
+ 
+-export {deleteElement}
+\ No newline at end of file
++export { deleteElement, reformatDate };
+diff --git a/package-lock.json b/package-lock.json
+index 7eb6c38..0a9fc39 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -6,7 +6,8 @@
+     "": {
+       "dependencies": {
+         "dotenv": "^16.0.3",
+-        "msw": "^0.49.2"
++        "msw": "^0.49.2",
++        "sql.js": "^1.8.0"
+       }
+     },
+     "node_modules/@mswjs/cookies": {
+@@ -1043,6 +1044,11 @@
+       "resolved": "https://registry.npmjs.org/signal-exit/-/signal-exit-3.0.7.tgz",
+       "integrity": "sha512-wnD2ZE+l+SPC/uoS0vXeE9L1+0wuaMqKlfz9AMUo38JsyLSBWSFcHR1Rri62LZc12vLr1gb3jl7iwQhgwpAbGQ=="
+     },
++    "node_modules/sql.js": {
++      "version": "1.8.0",
++      "resolved": "https://registry.npmjs.org/sql.js/-/sql.js-1.8.0.tgz",
++      "integrity": "sha512-3HD8pSkZL+5YvYUI8nlvNILs61ALqq34xgmF+BHpqxe68yZIJ1H+sIVIODvni25+CcxHUxDyrTJUL0lE/m7afw=="
++    },
+     "node_modules/strict-event-emitter": {
+       "version": "0.2.8",
+       "resolved": "https://registry.npmjs.org/strict-event-emitter/-/strict-event-emitter-0.2.8.tgz",
+@@ -1943,6 +1949,11 @@
+       "resolved": "https://registry.npmjs.org/signal-exit/-/signal-exit-3.0.7.tgz",
+       "integrity": "sha512-wnD2ZE+l+SPC/uoS0vXeE9L1+0wuaMqKlfz9AMUo38JsyLSBWSFcHR1Rri62LZc12vLr1gb3jl7iwQhgwpAbGQ=="
+     },
++    "sql.js": {
++      "version": "1.8.0",
++      "resolved": "https://registry.npmjs.org/sql.js/-/sql.js-1.8.0.tgz",
++      "integrity": "sha512-3HD8pSkZL+5YvYUI8nlvNILs61ALqq34xgmF+BHpqxe68yZIJ1H+sIVIODvni25+CcxHUxDyrTJUL0lE/m7afw=="
++    },
+     "strict-event-emitter": {
+       "version": "0.2.8",
+       "resolved": "https://registry.npmjs.org/strict-event-emitter/-/strict-event-emitter-0.2.8.tgz",
+diff --git a/package.json b/package.json
+index bf5152c..16ca645 100644
+--- a/package.json
++++ b/package.json
+@@ -18,6 +18,7 @@
+   },
+   "dependencies": {
+     "dotenv": "^16.0.3",
+-    "msw": "^0.49.2"
++    "msw": "^0.49.2",
++    "sql.js": "^1.8.0"
+   }
+ }
+diff --git a/patches/sqlFromJS.patch b/patches/sqlFromJS.patch
+new file mode 100644
+index 0000000..97c9394
+--- /dev/null
++++ b/patches/sqlFromJS.patch
+@@ -0,0 +1,215 @@
++diff --git a/components/com.database/src/sql-js/db.js b/components/com.database/src/sql-js/db.js
++new file mode 100644
++index 0000000..d2d234d
++--- /dev/null
+++++ b/components/com.database/src/sql-js/db.js
++@@ -0,0 +1,79 @@
+++import initSqlJs from "sql.js";
+++import User from "../../../com.users/src/user.class";
+++import { paths } from "../../../constants";
+++
+++const user = new User();
+++
+++const SQL = await initSqlJs({
+++	// Required to load the wasm binary asynchronously. Of course, you can host it wherever you want
+++	// You can omit locateFile completely when running in node
+++	locateFile: (file) => paths.dbPath + "/" + file,
+++});
+++
+++// Create a database
+++const db = new SQL.Database();
+++// NOTE: You can also use new SQL.Database(data) where
+++// data is an Uint8Array representing an SQLite database file
+++
+++// Execute a single SQL string that contains multiple statements
+++let sqlstr = "CREATE TABLE hello (a int, b char);";
+++db.run(sqlstr); // Run the query without returning anything
+++
+++// Prepare an sql statement
+++const stmt = db.prepare(sqlstr);
+++
+++// Bind values to the parameters and fetch the results of the query
+++const result = stmt.getAsObject({ sqlstr });
+++console.log(result); // Will print {a:1, b:'world'}
+++
+++// Bind other values
+++stmt.bind([0]);
+++while (stmt.step()) console.log(stmt.get()); // Will print [0, 'hello']
+++// free the memory used by the statement
+++stmt.free();
+++// You can not use your statement anymore once it has been freed.
+++// But not freeing your statements causes memory leaks. You don't want that.
+++
+++const res = db.exec("SELECT * FROM hello");
+++/*
+++[
+++  {columns:['a','b'], values:[[0,'hello'],[1,'world']]}
+++]
+++*/
+++
+++// You can also use JavaScript functions inside your SQL code
+++// Create the js function you need
+++function add(a, b) {
+++	return a + b;
+++}
+++// Specifies the SQL function's name, the number of it's arguments, and the js function to use
+++db.create_function("add_js", add);
+++// Run a query in which the function is used
+++db.run("INSERT INTO hello VALUES (add_js(7, 3), add_js('Hello ', 'world'));"); // Inserts 10 and 'Hello world'
+++
+++// You can create custom aggregation functions, by passing a name
+++// and a set of functions to `db.create_aggregate`:
+++//
+++// - an `init` function. This function receives no argument and returns
+++//   the initial value for the state of the aggregate function.
+++// - a `step` function. This function takes two arguments
+++//    - the current state of the aggregation
+++//    - a new value to aggregate to the state
+++//  It should return a new value for the state.
+++// - a `finalize` function. This function receives a state object, and
+++//   returns the final value of the aggregate. It can be omitted, in which case
+++//   the final value of the state will be returned directly by the aggregate function.
+++//
+++// Here is an example aggregation function, `json_agg`, which will collect all
+++// input values and return them as a JSON array:
+++db.create_aggregate("json_agg", {
+++	init: () => [],
+++	step: (state, val) => [...state, val],
+++	finalize: (state) => JSON.stringify(state),
+++});
+++
+++db.exec("SELECT json_agg(column1) FROM (VALUES ('hello'), ('world'))");
+++// -> The result of the query is the string '["hello","world"]'
+++
+++// Export the database to an Uint8Array containing the SQLite database file
+++const binaryArray = db.export();
++diff --git a/components/com.users/src/user.class.js b/components/com.users/src/user.class.js
++index c5644ef..fe665f6 100644
++--- a/components/com.users/src/user.class.js
+++++ b/components/com.users/src/user.class.js
++@@ -50,4 +50,8 @@ export default class User {
++ 			alert('Script is unable to continue');
++ 		}
++ 	}
+++
+++	getUserName() {
+++		return this.username;
+++	}
++ }
++diff --git a/components/constants.js b/components/constants.js
++index d5e3c77..7381f7b 100644
++--- a/components/constants.js
+++++ b/components/constants.js
++@@ -6,25 +6,27 @@ const tmpPath = join(baseDir, "tmp/");
++ const loader = join(baseDir, "loader.js");
++ const app = join(baseDir, "app.js");
++ const pidfile = join(baseDir, "pidfile");
++-const config = join(baseDir, "config/dev-env.js");
+++const config = join(baseDir, "config/devEnvClass.js");
++ const currentPackage = join(baseDir, "package.json");
++ const nodeModules = join(baseDir, "node_modules");
+++const dbPath = join(baseDir, "database");
++ const pluginNamePattern =
++-  /^(@[\w-]+\/)?nodebb-(theme|plugin|widget|rewards)-[\w-]+$/;
+++	/^(@[\w-]+\/)?nodebb-(theme|plugin|widget|rewards)-[\w-]+$/;
++ const themeNamePattern = /^(@[\w-]+\/)?nodebb-theme-[\w-]+$/;
++ const paths = {
++-  baseDir,
++-  loader,
++-  app,
++-  pidfile,
++-  config,
++-  currentPackage,
++-  installPackage,
++-  nodeModules,
++-  tmpPath
+++	baseDir,
+++	loader,
+++	app,
+++	pidfile,
+++	config,
+++	currentPackage,
+++	installPackage,
+++	nodeModules,
+++	tmpPath,
+++	dbPath,
++ };
++ const errDisplayingValues = "Unable to display values";
++ const cookiesNotEnabled = "Cookies not supported/enabled";
++ const dataValid = "User data have required length and format";
++ 
++-export { app, paths, errDisplayingValues, cookiesNotEnabled, dataValid };
++\ No newline at end of file
+++export { app, paths, errDisplayingValues, cookiesNotEnabled, dataValid };
++diff --git a/config/devEnvClass.js b/config/devEnvClass.js
++index 2ea79eb..e6274c9 100644
++--- a/config/devEnvClass.js
+++++ b/config/devEnvClass.js
++@@ -1,4 +1,4 @@
++-import { cookiesNotEnabled } from "../components/constants";
+++import { cookiesNotEnabled, paths } from "../components/constants";
++ import { worker } from "../js/setup_worker";
++ import { ctxStatusOK, ctxStatusRequestBypassed, ctxStatusRequestException, ctxStatusRequestStarted, ctxStatusRequestUnhandled } from "./dev-env";
++ 
++@@ -60,6 +60,10 @@ export default class devConfig {
++ 		return parseTemplate(specialTags, pipeBeforeTags)(template);
++ 	}
++ 
+++	getWorkingDir() {
+++		return paths.app.toString();
+++	}
+++
++ 	getKeyByID(key, run = Promise.resolve(), time) {
++ 		time = 500; // ms
++ 		if (this.keys[key] && Date.now() < this.keys[key].expire) {
++diff --git a/package-lock.json b/package-lock.json
++index 7eb6c38..0a9fc39 100644
++--- a/package-lock.json
+++++ b/package-lock.json
++@@ -6,7 +6,8 @@
++     "": {
++       "dependencies": {
++         "dotenv": "^16.0.3",
++-        "msw": "^0.49.2"
+++        "msw": "^0.49.2",
+++        "sql.js": "^1.8.0"
++       }
++     },
++     "node_modules/@mswjs/cookies": {
++@@ -1043,6 +1044,11 @@
++       "resolved": "https://registry.npmjs.org/signal-exit/-/signal-exit-3.0.7.tgz",
++       "integrity": "sha512-wnD2ZE+l+SPC/uoS0vXeE9L1+0wuaMqKlfz9AMUo38JsyLSBWSFcHR1Rri62LZc12vLr1gb3jl7iwQhgwpAbGQ=="
++     },
+++    "node_modules/sql.js": {
+++      "version": "1.8.0",
+++      "resolved": "https://registry.npmjs.org/sql.js/-/sql.js-1.8.0.tgz",
+++      "integrity": "sha512-3HD8pSkZL+5YvYUI8nlvNILs61ALqq34xgmF+BHpqxe68yZIJ1H+sIVIODvni25+CcxHUxDyrTJUL0lE/m7afw=="
+++    },
++     "node_modules/strict-event-emitter": {
++       "version": "0.2.8",
++       "resolved": "https://registry.npmjs.org/strict-event-emitter/-/strict-event-emitter-0.2.8.tgz",
++@@ -1943,6 +1949,11 @@
++       "resolved": "https://registry.npmjs.org/signal-exit/-/signal-exit-3.0.7.tgz",
++       "integrity": "sha512-wnD2ZE+l+SPC/uoS0vXeE9L1+0wuaMqKlfz9AMUo38JsyLSBWSFcHR1Rri62LZc12vLr1gb3jl7iwQhgwpAbGQ=="
++     },
+++    "sql.js": {
+++      "version": "1.8.0",
+++      "resolved": "https://registry.npmjs.org/sql.js/-/sql.js-1.8.0.tgz",
+++      "integrity": "sha512-3HD8pSkZL+5YvYUI8nlvNILs61ALqq34xgmF+BHpqxe68yZIJ1H+sIVIODvni25+CcxHUxDyrTJUL0lE/m7afw=="
+++    },
++     "strict-event-emitter": {
++       "version": "0.2.8",
++       "resolved": "https://registry.npmjs.org/strict-event-emitter/-/strict-event-emitter-0.2.8.tgz",
++diff --git a/package.json b/package.json
++index bf5152c..16ca645 100644
++--- a/package.json
+++++ b/package.json
++@@ -18,6 +18,7 @@
++   },
++   "dependencies": {
++     "dotenv": "^16.0.3",
++-    "msw": "^0.49.2"
+++    "msw": "^0.49.2",
+++    "sql.js": "^1.8.0"
++   }
++ }
