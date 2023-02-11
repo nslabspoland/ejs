@@ -25,6 +25,34 @@
 				},
 				"SameOrigin":{
 					"type":"boolean"
+				},
+				"Encoded?":{
+					"type":"boolean",
+					"description": "is request encoded?"
+				},
+				"postBody":{
+					"type":"string",
+					"minLength":5,
+					"maxLength": 255,
+					"description": "Request body"
+				},
+				"Attachments":{
+					"type":"boolean"
+				}
+			},
+			"required": ["Type", "Encoded?", "Body"]
+		},
+		"Response":{
+			"properties": {
+				"Type":{
+					"enum": ["post", "get"],
+					"$comment": "Usually the same as request type"
+				},
+				"Encoded?":{
+					"type":"boolean"
+				},
+				"Body":{
+					"enum": ["200, OK", "40x", "50x"]
 				}
 			}
 		}
