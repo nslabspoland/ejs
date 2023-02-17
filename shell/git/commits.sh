@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Repo remote address
-export REPO_ADDR="https://github.com/nslabspl/tidy"
+export REPO_ADDR="https://codeberg.org/nslabspl/tidy"
 
 # Local repo dir
 export LOCAL_DIR="$HOME/github/tidy"

@@ -6,8 +6,8 @@
   },
   "repository": {
     "directory": "/",
-    "type": "github",
-    "url": "https://github.com/nslabspl/ejs"
+    "type": "codeberg",
+    "url": "https://codeberg.org/nslabspl/ejs"
   },
   "eslintConfig": {
     "rules": {
