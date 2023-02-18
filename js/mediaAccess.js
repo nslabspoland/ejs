@@ -7,7 +7,7 @@
 
 import * as dotenv from 'dotenv';
 
-function getAllAvailableUserMedia() {
+export default function getAllAvailableUserMedia() {
   return [
     element = document.querySelector('video'),
     navigator.mediaDevices
@@ -45,5 +45,3 @@ function getAllAvailableUserMedia() {
       .then(deleteElement(element))
   ];
 }
-
-module.exports = { getAllAvailableUserMedia };
