@@ -1,4 +1,5 @@
 import devConfig from "../../../config/devEnvClass";
+import HTMLEscaper from "../../../js/escaper";
 import { dataValid, passwordEmpty, userRegistrationError } from "../../constants";
 
 /**
@@ -14,10 +15,10 @@ import { dataValid, passwordEmpty, userRegistrationError } from "../../constants
  */
 export default class User {
 	constructor(username, pass, mail, web) {
-		username = this.username = "";
-		pass = this.pass = "";
-		mail = this.mail = "";
-		web = this.web = "";
+		username = HTMLEscaper(this.username);
+		pass = HTMLEscaper(this.pass);
+		mail = HTMLEscaper(this.mail);
+		web = HTMLEscaper(this.web);
 	}
 
 	/**
