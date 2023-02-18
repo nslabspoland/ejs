@@ -2,8 +2,8 @@ let str = "";
 
 /**
  * Escapes HTML code to safe form.
- * 
- * @param {*} str 
+ *
+ * @param {*} str
  * @returns str
  * @author @wojtekxtx
  * @since 0.1.1
@@ -15,5 +15,6 @@ export default function HTMLEscaper(str) {
 		.replace("/</g", "&lt;")
 		.replace("/>/g", "&gt;")
 		.replace("//g", "&quot;")
+		.replace("///", "/")
 		.replace("/&/g", "&amp;");
 }
