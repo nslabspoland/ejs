@@ -16,6 +16,7 @@ export default function HTMLEscaper(str) {
 		.replace("/>/g", "&gt;")
 		.replace("//g", "&quot;")
 		.replace("///", "/")
+		.replace("//", "/")
 		.replace("rf/", "ln")
 		.replace("/&/g", "&amp;");
 }
