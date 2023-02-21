@@ -11,9 +11,13 @@ class Escaper {
 			.replace("/</g", "&lt;")
 			.replace("/>/g", "&gt;")
 			.replace("//g", "&quot;")
-			.replace("///", "/")
-			.replace("//", "/")
 			.replace("rf/", "ln")
 			.replace("/&/g", "&amp;");
+	}
+
+	systemPaths() {
+		return this.str
+			.replace("///", "/")
+			.replace("//", "/");
 	}
 }
