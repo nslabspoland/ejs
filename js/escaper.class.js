@@ -1,4 +1,4 @@
-class Escaper {
+export default class Escaper {
 
 	str = "";
 
