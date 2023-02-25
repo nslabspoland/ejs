@@ -1,24 +1,24 @@
 {
-  "author": {
-    "name": "nslabspl",
-    "email": "wojtekx.tx@gmail.com",
-    "url": "https://github.com/nslabspl"
-  },
-  "repository": {
-    "directory": "/",
-    "type": "codeberg",
-    "url": "https://codeberg.org/nslabspl/ejs"
-  },
-  "eslintConfig": {
-    "rules": {
-      "array-bracket-newline": "error",
-      "array-bracket-spacing": "warn",
-      "array-element-newline": "error"
-    }
-  },
-  "dependencies": {
-    "dotenv": "^16.0.3",
-    "msw": "^0.49.2",
-    "sql.js": "^1.8.0"
-  }
+	"author": {
+		"name": "nslabspoland",
+		"email": "wojtekx.tx@gmail.com",
+		"url": "https://github.com/nslabspoland"
+	},
+	"repository": {
+		"directory": "/",
+		"type": "codeberg",
+		"url": "https://codeberg.org/nslabspoland/ejs"
+	},
+	"eslintConfig": {
+		"rules": {
+			"array-bracket-newline": "error",
+			"array-bracket-spacing": "warn",
+			"array-element-newline": "error"
+		}
+	},
+	"dependencies": {
+		"dotenv": "^16.0.3",
+		"msw": "^0.49.2",
+		"sql.js": "^1.8.0"
+	}
 }

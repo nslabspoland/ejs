@@ -5373,7 +5373,7 @@ index 9490b4e..08fb5b1 100644
 --- a/config/dev-env.js
 +++ b/config/dev-env.js
 @@ -1,27 +1,47 @@
--export const repoaddress = "https://github.com/nslabspl/ejs";
+-export const repoaddress = "https://github.com/nslabspoland/ejs";
 -export const thisAppName = "Everything JS";
 -export const instanceType = "dev";
 +// Date (in local format)

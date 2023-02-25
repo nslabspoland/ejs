@@ -53,9 +53,9 @@ index f328c1f..044673a 100644
 --- a/config/dev-env.js
 +++ b/config/dev-env.js
 @@ -1,4 +1,48 @@
--const repoaddress = "https://github.com/nslabspl/ejs";
+-const repoaddress = "https://github.com/nslabspoland/ejs";
 -const thisAppName = "Everything JS"
-+export const repoaddress = "https://github.com/nslabspl/ejs";
++export const repoaddress = "https://github.com/nslabspoland/ejs";
 +export const thisAppName = "Everything JS";
 +export const instanceType = "dev";
  
@@ -922,7 +922,7 @@ index 0000000..de1e3a1
 +		}
 +
 +		function getRA() {
-+			document.getElementById('text_input_repoaddr').value = "https://github.com/nslabspl/ejs";
++			document.getElementById('text_input_repoaddr').value = "https://github.com/nslabspoland/ejs";
 +		}
 +
 +	</script>
