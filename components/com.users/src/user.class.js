@@ -1,5 +1,5 @@
 import devConfig from "../../../config/devEnvClass";
-import HTMLEscaper from "../../../js/escaper";
+import Escaper from "../../../js/escaper.class";
 import { dataValid, passwordEmpty, userRegistrationError } from "../../constants";
 
 /**
@@ -13,12 +13,16 @@ import { dataValid, passwordEmpty, userRegistrationError } from "../../constants
  * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes
  * @default true
  */
+
+const escaperClass = new Escaper();
+
 export default class User {
+
 	constructor(username, pass, mail, web) {
-		username = HTMLEscaper(this.username);
-		pass = HTMLEscaper(this.pass);
-		mail = HTMLEscaper(this.mail);
-		web = HTMLEscaper(this.web);
+		username = escaperClass.fromHtml(this.username);
+		pass = escaperClass.fromHtml(this.pass);
+		mail = escaperClass.fromHtml(this.mail);
+		web = escaperClass.fromHtml(this.web);
 	}
 
 	/**
@@ -106,7 +110,7 @@ export default class User {
 	getUserPass() {
 		const dc = new devConfig();
 		if (dc.getUserAdminStatus()) {
-			document.createElement('admin-pass-field').innerHTML = this.pass;
+			document.createElement('admin-pass-field').innerHTML = escaperClass.fromHtml(this.pass);
 		} else {
 			this.getPasswdHash();
 		}
