@@ -6,7 +6,6 @@
 # shellcheck disable=SC2129
 # shellcheck disable=SC2261
 clear;
-echo " "
 echo "Welcome to void-deployer!"
 sleep 1
 echo "  This is a shell script that automates the configuration of a window manager on Void Linux to some extent."
