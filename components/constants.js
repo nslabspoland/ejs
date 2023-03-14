@@ -39,6 +39,9 @@ const emailHasNotBeenSent =
 // Affirmations
 const emailSendingSuccess = "Email has been sent.";
 
+// Logger file path
+const winstonLoggerFilePath = join(baseDir, 'log/app.log');
+
 export {
 	app,
 	paths,
@@ -50,4 +53,5 @@ export {
 	banExpireDateMissing,
 	emailHasNotBeenSent,
 	emailSendingSuccess,
+	winstonLoggerFilePath
 };
