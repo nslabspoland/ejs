@@ -2,12 +2,12 @@
 	"author": {
 		"name": "nslabspoland",
 		"email": "wojtekx.tx@gmail.com",
-		"url": "https://codeberg.org/nslabspoland/ejs"
+		"url": "https://codeberg.org/wojtekxtx/ejs"
 	},
 	"repository": {
 		"directory": "/",
 		"type": "codeberg",
-		"url": "https://codeberg.org/nslabspoland/ejs"
+		"url": "https://codeberg.org/wojtekxtx/ejs"
 	},
 	"eslintConfig": {
 		"rules": {
@@ -20,6 +20,6 @@
 		"dotenv": "^16.0.3",
 		"msw": "^0.49.2",
 		"sql.js": "^1.8.0",
-		"winston": "3.8.2"
+		"winston": "^3.8.2"
 	}
 }
