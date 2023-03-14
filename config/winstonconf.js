@@ -17,4 +17,3 @@ winstonLogger.createLogger({
 
 // Add the most used transport
 winstonLogger.add(winstonLogger.transports.File(winstonLoggerFilePath));
-
